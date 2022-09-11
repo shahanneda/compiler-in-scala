@@ -13,7 +13,8 @@
 */
 package cs241e.assignments
 
-import cs241e.mips._
+import com.sun.tools.javac.util.Bits
+import cs241e.mips.{Bits, _}
 import cs241e.Utils._
 
 import scala.annotation.tailrec
@@ -111,7 +112,7 @@ object Assembler {
   def add1(seq: Seq[Boolean]): Seq[Boolean] ={
     var carry = true
     seq.reverseIterator.map((a) => {
-      val bit = a != carry // xor
+      val bit = a != carry // XOR
       carry = a && carry
       bit
     }).toSeq.reverse
@@ -121,8 +122,6 @@ object Assembler {
   /* Before continuing Assignment 1, go to `A1.scala` and complete the methods there. Then return here and implement
    * the following.
    */
-
-  
 
   /* Each of the following methods should encode the corresponding MIPS machine language instruction as a 32-bit `Word`.
    *
@@ -138,21 +137,25 @@ object Assembler {
 
   /* Hint: You may implement additional helper methods if you wish to factor out common code. */
 
-  def ADD(d: Reg, s: Reg, t: Reg = Reg.zero): Word = ???
-  def SUB(d: Reg, s: Reg, t: Reg): Word = ???
-  def MULT(s: Reg, t: Reg): Word = ???
-  def MULTU(s: Reg, t: Reg): Word = ???
-  def DIV(s: Reg, t: Reg): Word = ???
-  def DIVU(s: Reg, t: Reg): Word = ???
-  def MFHI(d: Reg): Word = ???
-  def MFLO(d: Reg): Word = ???
-  def LIS(d: Reg): Word = ???
-  def LW(t: Reg, i: Int, s: Reg): Word = ???
-  def SW(t: Reg, i: Int, s: Reg): Word = ???
-  def SLT(d: Reg, s: Reg, t: Reg): Word = ???
-  def SLTU(d: Reg, s: Reg, t: Reg): Word = ???
-  def BEQ(s: Reg, t: Reg, i: Int): Word = ???
-  def BNE(s: Reg, t: Reg, i: Int): Word = ???
-  def JR(s: Reg): Word = ???
-  def JALR(s: Reg): Word = ???
+  val fiveZero: Seq[Boolean] = Bits("00000")
+
+  def regToBinary(r: Reg): Seq[Boolean] = encodeUnsigned(r.number, 5)
+
+  def ADD(d: Reg, s: Reg, t: Reg = Reg.zero): Word = Word( fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000100000"))
+  def SUB(d: Reg, s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000100010"))
+  def MULT(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011000"))
+  def MULTU(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011001"))
+  def DIV(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits(" 0000000000011010"))
+  def DIVU(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011011"))
+  def MFHI(d: Reg): Word = Word(Bits("0000000000000000") ++ regToBinary(d) ++ Bits("00000010000"))
+  def MFLO(d: Reg): Word = Word(Bits("0000000000000000") ++ regToBinary(d) ++ Bits("00000010010"))
+  def LIS(d: Reg): Word =  Word(Bits("0000000000000000") ++ regToBinary(d) ++ Bits("00000010100"))
+  def LW(t: Reg, i: Int, s: Reg): Word = Word(Bits("100011") ++ regToBinary(s) ++regToBinary(t) ++ encodeSigned(i))
+  def SW(t: Reg, i: Int, s: Reg): Word = Word(Bits("101011") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i))
+  def SLT(d: Reg, s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101010"))
+  def SLTU(d: Reg, s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101011"))
+  def BEQ(s: Reg, t: Reg, i: Int): Word = Word(Bits("000100") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i) )
+  def BNE(s: Reg, t: Reg, i: Int): Word = Word(Bits("0001 01") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i) )
+  def JR(s: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ Bits("000000000000000001000"))
+  def JALR(s: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ Bits("000000000000000001001"))
 }

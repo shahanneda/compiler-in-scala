@@ -30,7 +30,13 @@ object A1 {
     */
   def setMem(words: Seq[Word], inputState: State = State(), startingAddress: Word = Word.zero): State = {
     require(decodeUnsigned(startingAddress) + words.size*4 <= decodeUnsigned(CPU.maxAddr))
-    ???
+
+    var currentAddress = startingAddress
+    words.foreach(word => {
+      inputState.setMem(currentAddress, word)
+      currentAddress =  Word(encodeUnsigned( decodeUnsigned(startingAddress) + 4))
+    })
+    inputState
   }
 
   /** You can use this helper method to test the following programs that you will write. It loads the
@@ -50,13 +56,19 @@ object A1 {
     *
     * Hint: You can create a `Word` of 32 bits as follows: `Word("01010101010101010101010101010101")`.
     */
-  lazy val transferTo31 = Seq[Word](???)
+  lazy val transferTo31 = Seq[Word](
+    Word("00000011111000000000000000001000")
+  )
 
   /** Write a MIPS machine language program that copies the value in register 1 to register 3, then adds the values
     * in register 1 and 3, placing the result in register 4, and then ends execution by transferring control to the
     * address in register 31.
     */
-  lazy val add134 = Seq[Word](???)
+  lazy val add134 = Seq[Word](
+    Word("000000000001000000001100000100000"),
+    Word("00000000001000110010000000100000"),
+    Word("00000011111000000000000000001000")
+  )
 
   /* Now implement the code generation methods in the second half of `Assembler.scala`. Then continue here
    * with the following methods.
