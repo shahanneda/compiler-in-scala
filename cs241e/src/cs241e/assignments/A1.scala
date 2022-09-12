@@ -55,12 +55,12 @@ object A1 {
 
 //    println(initialState.mem(Word.zero))
 //    println(initialState)
-    println(words)
-    println(initialState.mem(Word(encodeUnsigned(0))))
-    println(initialState.mem(Word(encodeUnsigned(4))))
-    println(initialState.mem(Word(encodeUnsigned(8))))
-    println(initialState.mem(Word(encodeUnsigned(12))))
-    println(initialState.mem(Word(encodeUnsigned(16))))
+//    println(words)
+//    println(initialState.mem(Word(encodeUnsigned(0))))
+//    println(initialState.mem(Word(encodeUnsigned(4))))
+//    println(initialState.mem(Word(encodeUnsigned(8))))
+//    println(initialState.mem(Word(encodeUnsigned(12))))
+//    println(initialState.mem(Word(encodeUnsigned(16))))
 
     CPU.run(initialState)
   }
@@ -96,8 +96,6 @@ object A1 {
     // if 1 , then reg 2 is max, else reg 1 is maximum
     LIS(Reg(4)),
     Word(encodeUnsigned(1)),
-    //0000 0000 0000 0000 00100 000 0001 0100
-    //0000 0000 0000 0000 dddd d000 0001 0100
     LIS(Reg(5)),
     Word(encodeUnsigned(1)),
     BEQ(Reg(3), Reg(4), 2),  // will skip next line if reg 2 is max
@@ -110,11 +108,20 @@ object A1 {
   /** Write a MIPS machine language program that adds 1 to the value in register 1, places the result in register 3,
     * and then ends execution.
     */
-  lazy val addOne = Seq[Word](???)
+  lazy val addOne = Seq[Word](
+    LIS(Reg(2)), // load one into register 2
+    Word(encodeUnsigned(1)),
+
+    ADD(Reg(3), Reg(1), Reg(2)),
+    JR(Reg(31))
+  )
 
   /** Write a MIPS machine language program that interprets the value in register 1 as the address of a word
     * in memory, places the address of the following word in memory in register 3, and then ends execution.
      */
-  lazy val followingAddress = Seq[Word](???)
+  lazy val followingAddress = Seq[Word](
+    ADD(Reg(3), Reg(1), Reg(0)),
+    JR(Reg(31)),
+  )
 }
 
