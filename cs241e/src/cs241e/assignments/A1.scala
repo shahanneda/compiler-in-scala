@@ -120,7 +120,9 @@ object A1 {
     * in memory, places the address of the following word in memory in register 3, and then ends execution.
      */
   lazy val followingAddress = Seq[Word](
-    ADD(Reg(3), Reg(1), Reg(0)),
+    LIS(Reg(2)),
+    Word(encodeUnsigned(4)),
+    ADD(Reg(3), Reg(1), Reg(2)),
     JR(Reg(31)),
   )
 }

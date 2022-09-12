@@ -1,4 +1,4 @@
-import cs241e.assignments.A1.{add134, loadAndRun, maximum, setMem}
+import cs241e.assignments.A1.{add134, followingAddress, loadAndRun, maximum, setMem}
 import cs241e.assignments.{A1, Assembler, Debugger, Reg}
 import cs241e.mips.{State, Word}
 import org.scalatest.FunSuite
@@ -14,8 +14,6 @@ import org.scalatest.FunSuite
 
 class A1Tests extends FunSuite {
   test("decodeUnsigned") {
-
-    println("You can print output from your tests.")
     assert(
       Assembler.decodeUnsigned(Seq(false, false, true, false)) == 2
     )
@@ -58,13 +56,11 @@ class A1Tests extends FunSuite {
     )
   }
   test("maximum"){
-//      val initialState = setMem(maximum)
-//          .setReg(1, Word(Assembler.encodeUnsigned(99)))
-//          .setReg(2, Word(Assembler.encodeUnsigned(243)))
-//
-//      Debugger.debug(initialState)
-      printState(loadAndRun(maximum, Word(Assembler.encodeUnsigned(99)), Word(Assembler.encodeUnsigned(555))))
-//      println(loadAndRun(add134, Word(Assembler.encodeUnsigned(99)), Word(Assembler.encodeUnsigned(5))))
+       assert(loadAndRun(maximum, Word(Assembler.encodeUnsigned(99)), Word(Assembler.encodeUnsigned(555))).reg(3) == Assembler.encodeUnsigned(555))
+       assert(loadAndRun(maximum, Word(Assembler.encodeUnsigned(99)), Word(Assembler.encodeUnsigned(1))).reg(3) == Assembler.encodeUnsigned(99))
+  }
+  test("followingAddress") {
+    assert(loadAndRun(followingAddress, Word(Assembler.encodeUnsigned(100)), Word(Assembler.encodeUnsigned(555))).reg(3) == Assembler.encodeUnsigned(104))
   }
 
   def printState(s: State): Unit = {

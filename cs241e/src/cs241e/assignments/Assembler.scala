@@ -39,8 +39,8 @@ object Assembler {
     require(bits.length >= 0)
     require(bits.length <= 32)
 
-    var power = 1
-    bits.foldRight(0)((bit, inc) => {
+    var power: Long = 1
+    bits.foldRight[Long](0)((bit, inc: Long) => {
       val returnVal = (if (!bit) 0 else power) + inc
       power *= 2
       returnVal
@@ -52,9 +52,9 @@ object Assembler {
     require(bits.length >= 1)
     require(bits.length <= 32)
 
-    var power = 1
+    var power: Long = 1
     var counter  = 0
-    bits.foldRight(0)((bit, inc) => {
+    bits.foldRight[Long](0)((bit, inc) => {
       counter += 1
       if(counter == bits.length){
         power *= -1
@@ -81,7 +81,7 @@ object Assembler {
     require(i < twoTo(bits))
 
     var value = Seq[Boolean]()
-    var num = i
+    var num: Long = i
     for(a <- 1 to bits){
       value = value :+ (num % 2 == 1)
       num /= 2
@@ -104,7 +104,7 @@ object Assembler {
       return encodeUnsigned(i, bits)
     }
 
-    val number = i * -1
+    val number: Long = i * -1
     add1(encodeUnsigned(number, bits).map((a) => !a))
   }
 
