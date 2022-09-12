@@ -31,12 +31,16 @@ object A1 {
   def setMem(words: Seq[Word], inputState: State = State(), startingAddress: Word = Word.zero): State = {
     require(decodeUnsigned(startingAddress) + words.size*4 <= decodeUnsigned(CPU.maxAddr))
 
+//    println("setting this to memeory:", words)
     var currentAddress = startingAddress
+    var state = inputState
     words.foreach(word => {
-      inputState.setMem(currentAddress, word)
-      currentAddress =  Word(encodeUnsigned( decodeUnsigned(startingAddress) + 4))
+      state = state.setMem(currentAddress, word)
+      currentAddress =  Word(encodeUnsigned( decodeUnsigned(currentAddress) + 4))
     })
-    inputState
+//    inputState.setMem(Word.zero, Word(encodeUnsigned(234)))
+//    println("memroy is this", inputState.mem(Word.zero))
+    state
   }
 
   /** You can use this helper method to test the following programs that you will write. It loads the
@@ -48,6 +52,16 @@ object A1 {
       setMem(words)
         .setReg(1, register1)
         .setReg(2, register2)
+
+//    println(initialState.mem(Word.zero))
+//    println(initialState)
+    println(words)
+    println(initialState.mem(Word(encodeUnsigned(0))))
+    println(initialState.mem(Word(encodeUnsigned(4))))
+    println(initialState.mem(Word(encodeUnsigned(8))))
+    println(initialState.mem(Word(encodeUnsigned(12))))
+    println(initialState.mem(Word(encodeUnsigned(16))))
+
     CPU.run(initialState)
   }
 
@@ -65,9 +79,9 @@ object A1 {
     * address in register 31.
     */
   lazy val add134 = Seq[Word](
-    Word("000000000001000000001100000100000"),
-    Word("00000000001000110010000000100000"),
-    Word("00000011111000000000000000001000")
+    Word("000000 00001 00000 00011 000 0010 0000"),
+    Word("000000 00001 00011 00100 000 0010 0000"),
+    Word("000000 11111 0 0000 0000 0000 0000 1000")
   )
 
   /* Now implement the code generation methods in the second half of `Assembler.scala`. Then continue here
@@ -77,7 +91,21 @@ object A1 {
   /** Write a MIPS machine language program that determines the maximum of the values in registers 1 and 2
     * interpreted as two's-complement integers, places it in register 3, and ends execution.
     */
-  lazy val maximum = Seq[Word](???)
+  lazy val maximum = Seq[Word](
+    SLT(Reg(3), Reg(1), Reg(2)),
+    // if 1 , then reg 2 is max, else reg 1 is maximum
+    LIS(Reg(4)),
+    Word(encodeUnsigned(1)),
+    //0000 0000 0000 0000 00100 000 0001 0100
+    //0000 0000 0000 0000 dddd d000 0001 0100
+    LIS(Reg(5)),
+    Word(encodeUnsigned(1)),
+    BEQ(Reg(3), Reg(4), 2),  // will skip next line if reg 2 is max
+    ADD(Reg(3), Reg(1), Reg(0)),
+    BEQ(Reg(4), Reg(5), 1),
+    ADD(Reg(3), Reg(2), Reg(0)),
+    JR(Reg(31))
+  )
 
   /** Write a MIPS machine language program that adds 1 to the value in register 1, places the result in register 3,
     * and then ends execution.

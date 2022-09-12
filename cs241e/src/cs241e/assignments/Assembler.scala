@@ -13,7 +13,6 @@
 */
 package cs241e.assignments
 
-import com.sun.tools.javac.util.Bits
 import cs241e.mips.{Bits, _}
 import cs241e.Utils._
 
@@ -137,25 +136,29 @@ object Assembler {
 
   /* Hint: You may implement additional helper methods if you wish to factor out common code. */
 
-  val fiveZero: Seq[Boolean] = Bits("00000")
+  val sixZero: Seq[Boolean] = Bits("000000")
 
   def regToBinary(r: Reg): Seq[Boolean] = encodeUnsigned(r.number, 5)
 
-  def ADD(d: Reg, s: Reg, t: Reg = Reg.zero): Word = Word( fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000100000"))
-  def SUB(d: Reg, s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000100010"))
-  def MULT(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011000"))
-  def MULTU(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011001"))
-  def DIV(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits(" 0000000000011010"))
-  def DIVU(s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011011"))
+  def ADD(d: Reg, s: Reg, t: Reg = Reg.zero): Word = Word( sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("000 0010 0000"))
+  def SUB(d: Reg, s: Reg, t: Reg): Word = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000100010"))
+  def MULT(s: Reg, t: Reg): Word = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011000"))
+  def MULTU(s: Reg, t: Reg): Word = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011001"))
+  def DIV(s: Reg, t: Reg): Word = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits(" 0000000000011010"))
+  def DIVU(s: Reg, t: Reg): Word = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ Bits("0000000000011011"))
   def MFHI(d: Reg): Word = Word(Bits("0000000000000000") ++ regToBinary(d) ++ Bits("00000010000"))
   def MFLO(d: Reg): Word = Word(Bits("0000000000000000") ++ regToBinary(d) ++ Bits("00000010010"))
-  def LIS(d: Reg): Word =  Word(Bits("0000000000000000") ++ regToBinary(d) ++ Bits("00000010100"))
-  def LW(t: Reg, i: Int, s: Reg): Word = Word(Bits("100011") ++ regToBinary(s) ++regToBinary(t) ++ encodeSigned(i))
-  def SW(t: Reg, i: Int, s: Reg): Word = Word(Bits("101011") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i))
-  def SLT(d: Reg, s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101010"))
-  def SLTU(d: Reg, s: Reg, t: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101011"))
-  def BEQ(s: Reg, t: Reg, i: Int): Word = Word(Bits("000100") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i) )
-  def BNE(s: Reg, t: Reg, i: Int): Word = Word(Bits("0001 01") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i) )
-  def JR(s: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ Bits("000000000000000001000"))
-  def JALR(s: Reg): Word = Word(fiveZero ++ regToBinary(s) ++ Bits("000000000000000001001"))
+  def LIS(d: Reg): Word =  Word(Bits("0000 0000 0000 0000") ++ regToBinary(d) ++ Bits("000 0001 0100"))
+  def LW(t: Reg, i: Int, s: Reg): Word = Word(Bits("100011") ++ regToBinary(s) ++regToBinary(t) ++ encodeSigned(i, 16))
+  def SW(t: Reg, i: Int, s: Reg): Word = Word(Bits("101011") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i, 16))
+  def SLT(d: Reg, s: Reg, t: Reg): Word = {
+//    println(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101010"))
+    val rval = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101010"))
+    rval
+  }
+  def SLTU(d: Reg, s: Reg, t: Reg): Word = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101011"))
+  def BEQ(s: Reg, t: Reg, i: Int): Word = Word(Bits("000100") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i, 16) )
+  def BNE(s: Reg, t: Reg, i: Int): Word = Word(Bits("000101") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i,  16) )
+  def JR(s: Reg): Word = Word(sixZero ++ regToBinary(s) ++ Bits("000000000000000001000"))
+  def JALR(s: Reg): Word = Word(sixZero ++ regToBinary(s) ++ Bits("000000000000000001001"))
 }
