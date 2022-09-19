@@ -27,7 +27,36 @@ object A2 {
    * in register 3, and end execution.
    */
   lazy val maximum: Seq[Word] = {
-    val code = Seq[Code](???)
+    val endlabel = new Label("end")
+    val oneIsSmaller = new Label("oneIsSmaller")
+
+//
+//    val code = Seq[Code](
+//      SLT(Reg(3), Reg(1), Reg(2)),
+//      LIS(Reg(4)),
+//      Word(encodeUnsigned(1)),
+//      beq(Reg(3), Reg(4), endlabel),
+//      BEQ(Reg(3), Reg(4), 1),
+//      Define(endlabel),
+//      JR(Reg(31))
+//    )
+
+    val code = Seq[Code](
+      SLT(Reg(3), Reg(1), Reg(2)), // if 1 < 2, then reg 3 = 1
+      LIS(Reg(4)),
+      Word(encodeUnsigned(1)),
+      beq(Reg(3), Reg(4), oneIsSmaller),
+      // reg 1 is bigger
+      ADD(Reg(3), Reg(1), Reg.zero),
+      LIS(Reg(5)),
+      Use(endlabel),
+      JR(Reg(5)),
+      Define(oneIsSmaller),
+      // reg 2 is bigger
+      ADD(Reg(3), Reg(2), Reg.zero),
+      Define(endlabel),
+      JR(Reg(31)),
+    )
     eliminateLabels(code)
   }
 
@@ -35,7 +64,25 @@ object A2 {
    * in register 3, and end execution.
    */
   lazy val maximumUnsigned: Seq[Word] = {
-    val code = Seq[Code](???)
+    val endlabel = new Label("end")
+    val oneIsSmaller = new Label("oneIsSmaller")
+
+    val code = Seq[Code](
+      SLTU(Reg(3), Reg(1), Reg(2)), // if 1 < 2, then reg 3 = 1
+      LIS(Reg(4)),
+      Word(encodeUnsigned(1)),
+      beq(Reg(3), Reg(4), oneIsSmaller),
+      // reg 1 is bigger
+      ADD(Reg(3), Reg(1), Reg.zero),
+      LIS(Reg(5)),
+      Use(endlabel),
+      JR(Reg(5)),
+      Define(oneIsSmaller),
+      // reg 2 is bigger
+      ADD(Reg(3), Reg(2), Reg.zero),
+      Define(endlabel),
+      JR(Reg(31)),
+    )
     eliminateLabels(code)
   }
 

@@ -65,8 +65,13 @@ object Transformations {
     def setLabels(): Unit = {
       var address = 0
       code.foreach {
-        case Define(label) => symbolTable(label) = address
-        case _ => address += 1
+        case Define(label) => {
+          if(symbolTable.contains(label)){
+            sys.error("Duplicate label: " +  label)
+          }
+          symbolTable(label) = address
+        }
+        case _ => address += 4
       }
     }
 
@@ -75,19 +80,34 @@ object Transformations {
       var location = 0
       code.flatMap {
         case Define(label) => None
-        case CodeWord(word) => Seq(word)
+        case CodeWord(word) => {
+          location += 1
+          Seq(word)
+        }
         case Use(label) => {
           symbolTable.get(label) match {
             case Some(address) =>{
+              location += 1
               Seq(Word(encodeUnsigned(address)))
             }
             case None =>{
               sys.error(s"Undefined label $label !")
-              Seq(Word.zero)
+              Seq(Word("10101010101010"))
             }
           }
         }
-        case BeqBne(bits, label) => ???
+        case BeqBne(bits, label) => symbolTable.get(label) match{
+          case Some(address) => {
+//            println("address of label is ", label, " ", address)
+            location += 1 // since PC is already incremented, we are actualy at the next location
+            val out =  Seq(Word(bits ++ encodeSigned(address/4 - location, 16)))
+            out
+          }
+          case None => {
+            sys.error(s"Undefined label $label !")
+            Seq(Word.zero)
+          }
+        }
         case _ => impossible(s"Encountered unsupported code $code.")
       }
     }
@@ -104,7 +124,10 @@ object Transformations {
     * Assumes that the input sequence does not contain any `Code`
     * types that are defined after `Comment` in `ProgramRepresentation.scala`.
     */
-  def eliminateComments(codes: Seq[Code]): Seq[Code] = ???
+  def eliminateComments(codes: Seq[Code]): Seq[Code] = codes.flatMap{
+    case Comment(_) => None
+    case anything => Seq(anything)
+  }
 
   /** Eliminate all `Block`s from a tree of `Code` by flattening the tree into a sequence of
     * `Code`s other than `Block`s.
@@ -113,8 +136,8 @@ object Transformations {
     * types that are defined after `Block` in `ProgramRepresentation.scala`.
     */
   def eliminateBlocks(code: Code): Seq[Code] = code match {
-    case Block(children) => ???
-    case _ => ???
+    case Block(children) => children.flatMap(c => eliminateBlocks(c))
+    case anything => Seq(anything)
   }
 
   /** Transform a `Code` tree by applying the function `fun` to transform each node of the tree of type `Code`.
@@ -128,11 +151,21 @@ object Transformations {
   def transformCodeTotal(code: Code, fun: Code=>Code): Code = {
     /** Apply `transformCodeTotal` on all child code nodes of the argument code node `code`. */
     def processChildren(code: Code): Code = code match {
-      case Block(children) => ???
-      case Scope(variables, body) => ???
-      case IfStmt(elseLabel, e1, comp, e2, thens, elses) => ???
-      case Call(procedure, args, isTail) => ???
-      case CallClosure(procedure, args, params, isTail) => ???
+      case Block(children) => Block(children.map(c => fun(transformCodeTotal(c, fun))))
+      case Scope(variables, body) => Scope(variables, fun(transformCodeTotal(body, fun)))
+      case IfStmt(elseLabel, e1, comp, e2, thens, elses) =>
+        IfStmt(elseLabel,
+          fun(transformCodeTotal(e1, fun)),
+          fun(transformCodeTotal(comp, fun)),
+          fun(transformCodeTotal(e2, fun)),
+          fun(transformCodeTotal( thens, fun)),
+          fun(transformCodeTotal(elses, fun)))
+      case Call(procedure, args, isTail) => Call(procedure, args.map(c => fun(transformCodeTotal(c, fun))), isTail)
+      case CallClosure(procedure, args, params, isTail) =>
+        CallClosure(procedure,
+        args.map(c => fun(transformCodeTotal(c, fun))),
+          params,
+          isTail)
       case _ => code
     }
 

@@ -63,7 +63,7 @@ class A1Tests extends FunSuite {
     assert(loadAndRun(followingAddress, Word(Assembler.encodeUnsigned(100)), Word(Assembler.encodeUnsigned(555))).reg(3) == Assembler.encodeUnsigned(104))
   }
 
-  def printState(s: State): Unit = {
+   def printState(s: State): Unit = {
     for(i <- 1 to 31){
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))
     }
