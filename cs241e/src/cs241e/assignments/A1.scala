@@ -30,16 +30,12 @@ object A1 {
     */
   def setMem(words: Seq[Word], inputState: State = State(), startingAddress: Word = Word.zero): State = {
     require(decodeUnsigned(startingAddress) + words.size*4 <= decodeUnsigned(CPU.maxAddr))
-
-//    println("setting this to memeory:", words)
     var currentAddress = startingAddress
     var state = inputState
     words.foreach(word => {
       state = state.setMem(currentAddress, word)
       currentAddress =  Word(encodeUnsigned( decodeUnsigned(currentAddress) + 4))
     })
-//    inputState.setMem(Word.zero, Word(encodeUnsigned(234)))
-//    println("memroy is this", inputState.mem(Word.zero))
     state
   }
 

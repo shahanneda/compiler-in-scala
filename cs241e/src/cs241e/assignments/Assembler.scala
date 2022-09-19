@@ -152,7 +152,6 @@ object Assembler {
   def LW(t: Reg, i: Int, s: Reg): Word = Word(Bits("100011") ++ regToBinary(s) ++regToBinary(t) ++ encodeSigned(i, 16))
   def SW(t: Reg, i: Int, s: Reg): Word = Word(Bits("101011") ++ regToBinary(s) ++ regToBinary(t) ++ encodeSigned(i, 16))
   def SLT(d: Reg, s: Reg, t: Reg): Word = {
-//    println(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101010"))
     val rval = Word(sixZero ++ regToBinary(s) ++ regToBinary(t) ++ regToBinary(d) ++ Bits("00000101010"))
     rval
   }

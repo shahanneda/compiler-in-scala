@@ -65,8 +65,8 @@ object Transformations {
     def setLabels(): Unit = {
       var address = 0
       code.foreach {
-        case Define(label) => ???
-        case _ => ???
+        case Define(label) => symbolTable(label) = address
+        case _ => address += 1
       }
     }
 
@@ -74,9 +74,19 @@ object Transformations {
     def translate: Seq[Word] = {
       var location = 0
       code.flatMap {
-        case Define(label) => ???
-        case CodeWord(word) => ???
-        case Use(label) => ???
+        case Define(label) => None
+        case CodeWord(word) => Seq(word)
+        case Use(label) => {
+          symbolTable.get(label) match {
+            case Some(address) =>{
+              Seq(Word(encodeUnsigned(address)))
+            }
+            case None =>{
+              sys.error(s"Undefined label $label !")
+              Seq(Word.zero)
+            }
+          }
+        }
         case BeqBne(bits, label) => ???
         case _ => impossible(s"Encountered unsupported code $code.")
       }
