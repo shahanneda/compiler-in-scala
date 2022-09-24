@@ -211,9 +211,13 @@ object Transformations {
   def eliminateVarAccessesA3(code: Code, frame: Chunk): Code = {
     def fun: PartialFunction[Code, Code] = {
       case va: VarAccess =>
-        ???
+        if(va.read){
+          frame.load(Reg.framePointer, va.register, va.variable)
+        }
+        else{
+          frame.store(Reg.framePointer, va.variable, va.register)
+        }
     }
-
     transformCode(code, fun)
   }
 
@@ -222,7 +226,11 @@ object Transformations {
     * point to it, followed by the `body`, followed by code to free the space for the `frame` from the stack.
     */
   def allocateFrameOnStack(body: Code, frame: Chunk): Code =
-    block(???, body, ???)
+    block(
+      Stack.allocate(frame),
+      body,
+      Stack.pop
+    )
 
   /** A bundle of machine language code in the form of a sequence of `Word`s and a `debugTable` for the `Debugger`. */
   case class MachineCode(words: Seq[Word], debugTable: DebugTable)

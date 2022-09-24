@@ -73,14 +73,22 @@ object MemoryManagement {
       * Map('a' -> 0, 'b' -> 2, 'c' -> 4)
       *
       */
-    private val variableToOffset: Map[Variable, Int] = ???
+    private val variableToOffset: Map[Variable, Int] = variables.zipWithIndex.map{
+      // adding two since first two blocks of chunk are taken
+      case (letter,index) => (letter, index*4 + 8)
+    }.toMap
+
+
 
     /** Generate code to load the value at the offset corresponding to `variable` into `register`.
       *
       * Assume that `baseRegister` contains the address of the beginning of the chunk.
       **/
     def load(baseRegister: Reg, register: Reg, variable: Variable): Code = {
-      ???
+      variableToOffset.get(variable) match {
+        case Some(offset) => LW(register, offset, baseRegister)
+        case None => sys.error("Trying to load variable not in chunk: " + variable.name)
+      }
     }
 
     /** Generate code to store the value of `register` at the offset corresponding to `variable`.
@@ -88,7 +96,10 @@ object MemoryManagement {
       * Assume that `baseRegister` contains the address of the beginning of the chunk.
       **/
     def store(baseRegister: Reg, variable: Variable, register: Reg): Code = {
-      ???
+      variableToOffset.get(variable) match {
+        case Some(offset) => SW(register, offset, baseRegister)
+        case None => sys.error("Trying to store variable not in chunk: " + variable.name)
+      }
     }
 
     /** Generate code to initialize a `Chunk` that has just been allocated. The generated code should
@@ -103,7 +114,24 @@ object MemoryManagement {
       * Starting in Assignment 11, the generated code should also write the number of pointer variables into
       * word 1 of the `Chunk`.
       */
-    def initialize: Code = ???
+    def initialize: Code = {
+      val loads = variables.map(v => {
+        variableToOffset.get(v) match {
+          case Some(offset) => SW(Reg.zero, offset, Reg.result)
+          case None => sys.error("Trying to init chunk with invalid variable: " + v.name)
+        }
+      })
+
+      Block(
+        (
+          Seq(
+            LIS(Reg.scratch),
+            Word(encodeUnsigned(bytes)),
+            SW(Reg.scratch, 0, Reg.result)
+          ) ++ loads
+        ).map(w => CodeWord(w))
+      )
+    }
   }
 
   /** An abstract memory allocator that allocates memory either on the stack or on the heap. */
@@ -130,7 +158,14 @@ object MemoryManagement {
       * already listed in Reg.scala.
       */
     def allocate(chunk: Chunk): Code = block(
-      ???,
+      // load size of chunk in scratch
+      LIS(Reg.scratch),
+      Word(encodeUnsigned(chunk.bytes)),
+
+      // move stack pointer to end of chunk
+      SUB(Reg.stackPointer, Reg.stackPointer, Reg.scratch),
+      ADD(Reg.result, Reg.stackPointer, Reg.zero), // store address of start of chunk in Reg.result
+
       chunk.initialize
     )
     /** Generate the code to deallocate the space for the `Chunk` that is at the top of the stack. To determine
@@ -141,7 +176,10 @@ object MemoryManagement {
       * If you need more than these registers, you may add new scratch registers to Reg.scala. The generated code
       * must not modify the values of any other registers that are already listed in Reg.scala.
       */
-    val pop: Code = ???
+    val pop: Code = block(
+      LW(Reg.scratch, 0, Reg.stackPointer), // load size of chunk
+      ADD(Reg.stackPointer, Reg.scratch, Reg.zero),
+    )
   }
 
   /** Code that copies a chunk whose address is in `fromRegister` to the address in `toRegister`.
