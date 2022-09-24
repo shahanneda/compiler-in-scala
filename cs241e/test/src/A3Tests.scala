@@ -1,4 +1,4 @@
-import cs241e.assignments.A1.loadAndRun
+import cs241e.assignments.A1.{loadAndRun, setMem}
 import cs241e.mips.{State, Word}
 import cs241e.assignments.Assembler._
 import cs241e.assignments.ProgramRepresentation._
@@ -35,16 +35,23 @@ class A3Tests extends FunSuite {
         Word(encodeUnsigned(5)),
         LIS(Reg(2)),
         Word(encodeUnsigned(99)),
-        VarAccess(Reg(1), x, false),
-        VarAccess(Reg(2), y, false),
+        write(x, Reg(1)),
+        write(y, Reg(2)),
 
-        VarAccess(Reg(5), x, true),
-        VarAccess(Reg(6), y, true),
+        read(Reg(15), x),
+        read(Reg(16), y),
+
+        read(Reg(19), x),
+        write(y, Reg(19)),
+
+        read(Reg(17), y),
       )
       compilerA3(code, variables)
     }
   test("varTestBasic"){
-    println(varTestBasic.words);
+    val state = setMem(varTestBasic.words);
+    Debugger.debug(state, varTestBasic.debugTable)
+
     printState(loadAndRun(varTestBasic.words))
   }
 
@@ -60,6 +67,8 @@ class A3Tests extends FunSuite {
     for (i <- 1 to 31) {
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))
     }
+    println("memory")
+
     println(s.reg(Reg.targetPC.number))
   }
 }

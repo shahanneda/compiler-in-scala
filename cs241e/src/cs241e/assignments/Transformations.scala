@@ -227,8 +227,12 @@ object Transformations {
     */
   def allocateFrameOnStack(body: Code, frame: Chunk): Code =
     block(
+      Comment("Start of allocate frame"),
       Stack.allocate(frame),
+      ADD(Reg.framePointer, Reg.result, Reg.zero), // Store new Frame pointer
+      Comment("End of frame allocation, start body:"),
       body,
+      Comment("End of body, pop:"),
       Stack.pop
     )
 

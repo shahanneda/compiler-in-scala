@@ -86,7 +86,10 @@ object MemoryManagement {
       **/
     def load(baseRegister: Reg, register: Reg, variable: Variable): Code = {
       variableToOffset.get(variable) match {
-        case Some(offset) => LW(register, offset, baseRegister)
+        case Some(offset) => block(
+          Comment("load: " + variable.name),
+          LW(register, offset, baseRegister)
+        )
         case None => sys.error("Trying to load variable not in chunk: " + variable.name)
       }
     }
@@ -97,7 +100,10 @@ object MemoryManagement {
       **/
     def store(baseRegister: Reg, variable: Variable, register: Reg): Code = {
       variableToOffset.get(variable) match {
-        case Some(offset) => SW(register, offset, baseRegister)
+        case Some(offset) => block(
+          Comment("store: " + variable.name),
+          SW(register, offset, baseRegister)
+        )
         case None => sys.error("Trying to store variable not in chunk: " + variable.name)
       }
     }
@@ -123,6 +129,8 @@ object MemoryManagement {
       })
 
       Block(
+        Seq(Comment("Start of block init"))
+        ++
         (
           Seq(
             LIS(Reg.scratch),
@@ -158,6 +166,7 @@ object MemoryManagement {
       * already listed in Reg.scala.
       */
     def allocate(chunk: Chunk): Code = block(
+      Comment("Start of chunk allocation"),
       // load size of chunk in scratch
       LIS(Reg.scratch),
       Word(encodeUnsigned(chunk.bytes)),
@@ -166,7 +175,8 @@ object MemoryManagement {
       SUB(Reg.stackPointer, Reg.stackPointer, Reg.scratch),
       ADD(Reg.result, Reg.stackPointer, Reg.zero), // store address of start of chunk in Reg.result
 
-      chunk.initialize
+      chunk.initialize,
+      Comment("End of chunck allocation")
     )
     /** Generate the code to deallocate the space for the `Chunk` that is at the top of the stack. To determine
       * the size of this `Chunk`, takes advantage of the convention that word 0 of each `Chunk` stores its size
@@ -177,8 +187,10 @@ object MemoryManagement {
       * must not modify the values of any other registers that are already listed in Reg.scala.
       */
     val pop: Code = block(
+      Comment("Start of pop"),
       LW(Reg.scratch, 0, Reg.stackPointer), // load size of chunk
-      ADD(Reg.stackPointer, Reg.scratch, Reg.zero),
+      ADD(Reg.stackPointer, Reg.stackPointer, Reg.scratch),
+      Comment("End of pop")
     )
   }
 

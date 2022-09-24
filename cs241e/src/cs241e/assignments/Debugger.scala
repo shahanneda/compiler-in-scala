@@ -84,11 +84,11 @@ object Debugger {
       // For a lis instruction, also print the following word.
       if(disasmed.startsWith("lis ")) {
         val constant = state.mem(CPU.incrementAddress(state.reg(PC)))
-        disasmed += "; " + constant
+        disasmed += "; " + decodeUnsigned(constant)
       }
 
       // Redefine registersToPrint to inspect other registers.
-      val registersToPrint = List(3, 30)
+      val registersToPrint = List()
       def printReg(reg: Int) = s"$reg: ${state.reg(reg)}   "
 
       print(registersToPrint.map(printReg).mkString + "   ")
