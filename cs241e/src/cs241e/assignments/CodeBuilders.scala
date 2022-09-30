@@ -35,7 +35,18 @@ object CodeBuilders {
     * must not modify the values of any other registers that are already listed in Reg.scala.
     */
   def binOp(e1: Code, op: Code, e2: Code): Code = {
-    ???
+      val e1Result = new Variable("e1 result ")
+
+      Scope(variables = Seq(e1Result), code =
+        block(
+          e1,
+          write(e1Result, Reg.result),
+          e2,
+          read(Reg.scratch, e1Result),
+          // e1 in reg.scratch, e2 in reg.result
+          op
+        )
+      )
   }
 
   /* The following `Code`s are intended to be used as the `op` argument to `binOp`.
@@ -49,13 +60,29 @@ object CodeBuilders {
    * need more than these registers, you may add new scratch registers to Reg.scala. The generated code
    * must not modify the values of any other registers that are already listed in Reg.scala.
    */
-  lazy val plus: Code = ???
-  lazy val minus: Code = ???
-  lazy val times: Code = ???
-  lazy val divide: Code = ???
-  lazy val remainder: Code = ???
-  lazy val divideUnsigned: Code = ???
-  lazy val remainderUnsigned: Code = ???
+  lazy val plus: Code = ADD(Reg.result, Reg.scratch, Reg.result)
+  lazy val minus: Code = SUB(Reg.result, Reg.scratch, Reg.result)
+  lazy val times: Code = block(
+    MULT(Reg.scratch, Reg.result),
+    MFLO(Reg.result)
+  )
+  lazy val divide: Code = block(
+    DIV(Reg.scratch, Reg.result),
+    MFLO(Reg.result),
+  )
+  lazy val remainder: Code = block(
+    DIV(Reg.scratch, Reg.result),
+    MFHI(Reg.scratch),
+  )
+
+  lazy val divideUnsigned: Code = block(
+    DIVU(Reg.scratch, Reg.result),
+    MFLO(Reg.result),
+  )
+  lazy val remainderUnsigned: Code = block(
+    DIVU(Reg.scratch, Reg.result),
+    MFLO(Reg.result),
+  )
 
   /* The following `Code`s are intended to be used as the `comp` argument to `IfStmt`.
    * They should expect two operands in `Reg.scratch` and `Reg.result`, interpret them as two's-complement

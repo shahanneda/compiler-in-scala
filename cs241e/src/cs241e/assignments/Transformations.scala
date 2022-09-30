@@ -281,8 +281,18 @@ object Transformations {
     * Hint: Use `transformCode`.
     */
   def eliminateScopes(code: Code): (Code, Seq[Variable]) = {
-    ???
-    (???, ???)
+    var vars: Seq[Variable] = Seq()
+
+    def f: PartialFunction[Code, Code] = {
+      case Scope(variables, code) => {
+        vars = variables ++ vars
+        code
+      }
+    }
+
+    val newCode = transformCode(code, f)
+
+    (newCode, vars)
   }
 
   /** Eliminate all `IfStmt`s from a tree of `Code` by translating them to simpler pieces
@@ -296,8 +306,23 @@ object Transformations {
     * must not modify the values of any other registers that are already listed in Reg.scala.
     */
   def eliminateIfStmts(code: Code): Code = {
-    def fun: PartialFunction[Code, Code] = {
-      ???
+    def fun: PartialFunction[Code, Code] = (v) => {
+      val e1Val = new Variable("e1 ");
+      v match {
+        case IfStmt(elseLabel, e1, comp, e2, thens, elses) => {
+          block(
+            e1,
+            write(e1Val, Reg.result),
+            e2,
+            read(Reg.scratch, e1Val),
+            comp,
+            thens,
+            Define(elseLabel),
+            elses
+          )
+        }
+        case x => x
+      }
     }
 
     transformCode(code, fun)
