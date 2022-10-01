@@ -66,6 +66,34 @@ class A4Tests extends FunSuite {
 
   }
 
+  test("lastElement"){
+    val state = A4.loadAndRunArray(A4.lastElement,
+      Seq(Word(encodeUnsigned(0)), Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), Word(encodeUnsigned(3)), Word(encodeUnsigned(99)))
+      , true )
+    printState(state)
+    assert(state.reg(3) == Word(encodeUnsigned(99)))
+  }
+
+  test("lastElementEmpty"){
+    val state = A4.loadAndRunArray(A4.lastElement,
+      Seq()
+      , true )
+    printState(state)
+    assert(state.reg(3) == Word(encodeSigned(-1)))
+  }
+  test("maximumArray1"){
+    val array = Seq(1, 2, 99, 2, 4, 9).map(x => Word(encodeUnsigned(x)))
+    val state = A4.loadAndRunArray(A4.arrayMaximum, array, true )
+    printState(state)
+    assert(state.reg(3) == Word(encodeUnsigned(99)))
+  }
+  test("maximumArray2"){
+    val array = Seq(-3, 2, 99, 2, 4, -34).map(x => Word(encodeSigned(x)))
+    val state = A4.loadAndRunArray(A4.arrayMaximum, array, true )
+    printState(state)
+    assert(state.reg(3) == Word(encodeUnsigned(99)))
+  }
+
   def printState(s: State): Unit = {
     for (i <- 1 to 31) {
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))

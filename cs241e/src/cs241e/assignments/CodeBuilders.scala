@@ -92,13 +92,77 @@ object CodeBuilders {
    * need more than these registers, you may add new scratch registers to Reg.scala. The generated code
    * must not modify the values of any other registers that are already listed in Reg.scala.
    */
-  def eqCmp(label: Label): Code = ???
-  def neCmp(label: Label): Code = ???
-  def ltCmp(label: Label): Code = ???
-  def gtCmp(label: Label): Code = ???
-  def leCmp(label: Label): Code = ???
-  def geCmp(label: Label): Code = ???
-  def gtUnsignedCmp(label: Label): Code = ???
+  def eqCmp(label: Label): Code = block(
+    bne(Reg.scratch, Reg.result, label)
+  )
+
+  def neCmp(label: Label): Code = block(
+    beq(Reg.scratch, Reg.result, label)
+  )
+  def ltCmp(label: Label): Code = block(
+    beq(Reg.scratch, Reg.result,  label),
+
+    SLT(Reg.scratch, Reg.scratch, Reg.result),
+    // Scratch will be 1 if s is less than r
+      LIS(Reg.result),
+      Word(encodeUnsigned(1)),
+
+    // if not 1, then failed
+    bne(Reg.scratch, Reg.result, label)
+  )
+
+  def gtCmp(label: Label): Code = block(
+    /*
+     goal s > r
+     if s <= r, then branch
+     s < r
+     */
+
+    beq(Reg.scratch, Reg.result, label),
+    SLT(Reg.scratch, Reg.scratch, Reg.result),
+    // Scratch will be 1 if s is less than r
+    LIS(Reg.result),
+    Word(encodeUnsigned(1)),
+    // if it is 1, then fail
+    beq(Reg.scratch, Reg.result, label)
+  )
+
+  def leCmp(label: Label): Code = block(
+    /*
+     Goal s <= r
+        If s > r, then jump
+        so if r < s, then 1 so jump
+     */
+    SLT(Reg.scratch, Reg.result, Reg.scratch),
+    LIS(Reg.result),
+    Word(encodeUnsigned(1)),
+    beq(Reg.result, Reg.scratch, label)
+  )
+
+  def geCmp(label: Label): Code = block(
+    /*
+    Goal s >= r
+
+    fail if s < r,
+     */
+    SLT(Reg.scratch, Reg.scratch, Reg.result),
+    LIS(Reg.result),
+    Word(encodeUnsigned(1)),
+    beq(Reg.result, Reg.scratch, label)
+  )
+  def gtUnsignedCmp(label: Label): Code = block(
+    /*
+        Goal s > r,
+        so jump if s <= r,
+     */
+    beq(Reg.scratch, Reg.result, label),
+
+    // jump if s < r
+    SLTU(Reg.scratch, Reg.scratch, Reg.result),
+    LIS(Reg.result),
+    Word(encodeUnsigned(1)),
+    beq(Reg.result, Reg.scratch, label)
+  )
 
   /** Generates code that evaluates `expr` to yield a memory address, then loads the word from that address
     * into `Reg.result`.
@@ -107,7 +171,10 @@ object CodeBuilders {
     * need more than these registers, you may add new scratch registers to Reg.scala. The generated code
     * must not modify the values of any other registers that are already listed in Reg.scala.
     **/
-  def deref(expr: Code): Code = ???
+  def deref(expr: Code): Code = block(
+    expr,
+    LW(Reg.result,  0, Reg.result),
+  )
 
   /** Generates code that evaluates `target` to yield a memory address, then evaluates `expr` to yield a value,
     * then stores the value into the memory address.
@@ -116,7 +183,17 @@ object CodeBuilders {
     * need more than these registers, you may add new scratch registers to Reg.scala. The generated code
     * must not modify the values of any other registers that are already listed in Reg.scala.
     */
-  def assignToAddr(target: Code, expr: Code): Code = ???
+  def assignToAddr(target: Code, expr: Code): Code = {
+    val temp = new Variable("Assign to address temp")
+    Scope(Seq(temp), block(
+      target,
+      write(temp, Reg.result),
+      expr,
+      read(Reg.scratch, temp),
+      SW(Reg.result, 0, Reg.scratch)
+    ))
+  }
+
 
   /** Generates code that implements a while loop. The generated code should evaluate `e1` and `e2`,
     * compare them using `comp`, and if the comparison succeeds, it should execute `body` and repeat
@@ -127,7 +204,23 @@ object CodeBuilders {
     * must not modify the values of any other registers that are already listed in Reg.scala.
     */
   def whileLoop(e1: Code, comp: Label=>Code, e2: Code, body: Code): Code = {
-    ???
+    val temp = new Variable("E1 Result (While)");
+    val startLabel = new Label("While Start Label")
+    val endLabel = new Label("While End Label")
+
+    Scope(Seq(temp),
+      block(
+        Define(startLabel),
+        e1,
+        write(temp, Reg.result),
+        e2,
+        read(Reg.scratch, temp),
+        comp(endLabel),
+        body,
+        beq(Reg.zero, Reg.zero, startLabel),
+        Define(endLabel),
+      )
+    )
   }
 
   

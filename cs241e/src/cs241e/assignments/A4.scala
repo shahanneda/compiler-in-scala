@@ -19,6 +19,7 @@ import Transformations._
 import ProgramRepresentation._
 import CodeBuilders._
 import A1._
+import cs241e.assignments
 
 object A4 {
   /** This is an enhanced version of the loadAndRun method from Assignment 1.
@@ -63,7 +64,37 @@ object A4 {
     * Otherwise copy the last element of the array into register 3.
     */
   lazy val lastElement: MachineCode = {
-    val code: Code = ???
+    val code: Code = block(
+      ifStmt(ADD(Reg.result, Reg(2)), neCmp, ADD(Reg.result, Reg.zero),
+        block(
+          deref(
+            binOp(ADD(Reg.result, Reg(1)), plus,
+              binOp(
+                binOp(
+                  ADD(Reg.result, Reg(2)),
+                  minus,
+                  block(
+                    LIS(Reg.result),
+                    Word(encodeUnsigned(1)),
+                  )
+                ),
+                times,
+                block(
+                  LIS(Reg.result),
+                  Word(encodeUnsigned(4)),
+                )
+              )
+            )
+          )
+        ),
+        // Else
+        block(
+          LIS(Reg.result),
+          Word(encodeSigned(-1))
+        )
+      ),
+      JR(Reg(31))
+    )
     compilerA4(code)
   }
 
@@ -73,8 +104,32 @@ object A4 {
     * Assume the array is not empty.
     */
   lazy val arrayMaximum: MachineCode = {
-    
-    val code: Code = ???
+    val i = new Variable("i")
+    val max = new Variable("max")
+    val currEl = new Variable("currEl")
+    val code: Code = Scope(Seq(i, max, currEl),
+      block(
+        write(i, Reg.zero),
+        whileLoop(read(Reg.result, i), ltCmp, ADD(Reg.result, Reg(2)), block(
+          //Reg(1) + i * 4
+          deref(
+            binOp(ADD(Reg.result, Reg(1)), plus,
+              binOp(read(Reg.result, i), times,
+                block(LIS(Reg.result), Word(encodeUnsigned(4)))
+            ))
+          ),
+          write(currEl, Reg.result),
+          ifStmt(read(Reg.result, currEl), gtCmp, read(Reg.result, max), block(
+            assign(max, read(Reg.result, currEl)),
+          )),
+
+          // i++
+          binOp(read(Reg.result, i), plus, block(LIS(Reg.result), Word(encodeUnsigned(1)))),
+          write(i, Reg.result),
+        )),
+        read(Reg.result, max)
+      )
+    )
     compilerA4(code)
   }
 
@@ -91,12 +146,14 @@ object A4 {
   
   lazy val outputLetters: MachineCode = {
     
-    val code: Code = ???
+    val code: Code = Scope(Seq(), block(
+
+    ))
     compilerA4(code)
   }
 
   /** Register 1 holds a 32-bit integer (in two's-complement notation).
-    * Your program should format this integer in base 10, print it, then print a newline character.
+    * Your program should format thisencodeSignedinteger in base 10, print it, then print a newline character.
     */
 
   lazy val printIntegerCode: Code = ???

@@ -98,9 +98,11 @@ object Transformations {
         }
         case BeqBne(bits, label) => symbolTable.get(label) match{
           case Some(address) => {
-//            println("address of label is ", label, " ", address)
+            println("address of label is ", label, " ", address)
+            println(bits)
             location += 1 // since PC is already incremented, we are actualy at the next location
             val out =  Seq(Word(bits ++ encodeSigned(address/4 - location, 16)))
+            println("after doing word")
             out
           }
           case None => {
@@ -306,22 +308,29 @@ object Transformations {
     * must not modify the values of any other registers that are already listed in Reg.scala.
     */
   def eliminateIfStmts(code: Code): Code = {
-    def fun: PartialFunction[Code, Code] = (v) => {
-      val e1Val = new Variable("e1 ");
-      v match {
-        case IfStmt(elseLabel, e1, comp, e2, thens, elses) => {
+    def fun: PartialFunction[Code, Code] = {
+      case IfStmt(elseLabel, e1, comp, e2, thens, elses) => {
+        val e1Val = new Variable("e1 ");
+        val endIfLabel = new Label("End If")
+        println("Then is ", thens)
+        println("comp is", comp)
+        Scope(
+          Seq(e1Val),
           block(
             e1,
             write(e1Val, Reg.result),
             e2,
             read(Reg.scratch, e1Val),
+            Comment("If Comp:"),
             comp,
+            Comment("Then code:"),
             thens,
+            beq(Reg.zero, Reg.zero, endIfLabel),
             Define(elseLabel),
-            elses
+            elses,
+            Define(endIfLabel),
           )
-        }
-        case x => x
+        )
       }
     }
 
