@@ -136,8 +136,16 @@ object ProgramRepresentation {
   /** Generates a `VarAccess` that reads `variable` into `register`. */
   def read(register: Reg, variable: Variable) = VarAccess(register, variable, read = true)
 
+  /** Reads variable into result */
+  def readVarRes(variable: Variable) = VarAccess(Reg.result, variable, read = true)
+
+  def constRes(i: Int) = block(LIS(Reg.result), Word(encodeSigned(i)))
+
   /** Generates a `VarAccess` that writes `register` into `variable`. */
   def write(variable: Variable, register: Reg) = VarAccess(register, variable, read = false)
+
+  /** Writes var to result */
+  def writeVarRes(variable: Variable) = write(variable, Reg.result)
 
   /** Generates an assignment statement that first evaluates `expr` (assuming its result is stored into `Reg.result`),
     * then writes the result into `variable`.

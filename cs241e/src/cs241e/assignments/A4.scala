@@ -20,6 +20,7 @@ import ProgramRepresentation._
 import CodeBuilders._
 import A1._
 import cs241e.assignments
+import javafx.scene.web.HTMLEditorSkin.Command
 
 object A4 {
   /** This is an enhanced version of the loadAndRun method from Assignment 1.
@@ -145,9 +146,38 @@ object A4 {
     */
   
   lazy val outputLetters: MachineCode = {
-    
-    val code: Code = Scope(Seq(), block(
+    val i = new Variable("i")
+    val max = new Variable("max")
+    val currEl = new Variable("currEl")
 
+    val code: Code = Scope(Seq(i, currEl), block(
+      write(i, Reg.zero),
+
+
+      whileLoop(readVarRes(i), ltCmp, ADD(Reg.result, Reg(2)), block(
+          Comment("Doing while loop iteration"),
+          deref(binOp(ADD(Reg.result, Reg(1)), plus, binOp(readVarRes(i), times, constRes(4)))),
+          writeVarRes(currEl),
+          ifStmt(readVarRes(currEl), eqCmp, constRes(0), block(
+              // is zero, print space
+              constRes(32), // 32 is space
+              LIS(Reg.scratch),
+              Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+              SW(Reg.result, 0, Reg.scratch),
+            ),
+            block(
+              // no zero
+              binOp(readVarRes(currEl), plus, constRes(64)),
+              LIS(Reg.scratch),
+              Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+              SW(Reg.result, 0, Reg.scratch),
+            )
+          ),
+          binOp(readVarRes(i), plus, constRes(1)),
+          writeVarRes(i),
+          read(Reg(19), i),
+        )
+      )
     ))
     compilerA4(code)
   }
@@ -156,6 +186,39 @@ object A4 {
     * Your program should format thisencodeSignedinteger in base 10, print it, then print a newline character.
     */
 
-  lazy val printIntegerCode: Code = ???
+  lazy val printIntegerCode: Code = {
+    Scope(Seq(), block(
+      ifStmt(ADD(Reg.result, Reg(1)), eq, ADD(Reg.result, Reg.zero), block(
+        LIS(Reg.scratch),
+        Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+
+        LIS(Reg.result),
+        Word(encodeUnsigned(38)), //  38 is 0 in ASCI
+        SW(Reg.result, 0, Reg.scratch),
+      )),
+
+      whileLoop(ADD(Reg.result, Reg(1)), neCmp, ADD(Reg.result, Reg.zero), block(
+        binOp(ADD(Reg.result, Reg(1)), remainder, constRes(10)),
+
+        Comment("Print remainder"),
+        LIS(Reg.scratch),
+        Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+        SW(Reg.result, 0, Reg.scratch),
+
+        Comment("Divide by 10"),
+        binOp(ADD(Reg.result, Reg(1)), divide, constRes(10)),
+        ADD(Reg(1), Reg.result),
+      )),
+
+      Comment("Print New line"),
+      LIS(Reg.scratch),
+      Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+
+      LIS(Reg.result),
+      Word(encodeUnsigned(10)), //  10 is \n in ASCI
+      SW(Reg.result, 0, Reg.scratch),
+      JR(Reg(31))
+    ))
+  }
   lazy val printInteger: MachineCode = compilerA4(printIntegerCode)
 }

@@ -88,7 +88,7 @@ object Debugger {
       }
 
       // Redefine registersToPrint to inspect other registers.
-      val registersToPrint = List(3, 4)
+      val registersToPrint = List(3, 4, 19)
 //      def printReg(reg: Int) = s"$reg: ${state.reg(reg)}   "
       def printReg(reg: Int) = s"$reg: ${decodeUnsigned(state.reg(reg))}   "
 

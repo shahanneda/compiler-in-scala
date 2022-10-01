@@ -94,6 +94,16 @@ class A4Tests extends FunSuite {
     assert(state.reg(3) == Word(encodeUnsigned(99)))
   }
 
+  test("output letters"){
+    val array = Seq(0, 0, 1, 2, 3, 0,0, 1,2,3, 26, 26).map(x => Word(encodeSigned(x)))
+    val state = A4.loadAndRunArray(A4.outputLetters, array, false )
+    printState(state)
+  }
+
+  test("print Integer Code 1"){
+    val state = A4.loadAndRun(A4.outputLetters, Word(encodeSigned(12)), debug=true)
+    printState(state)
+  }
   def printState(s: State): Unit = {
     for (i <- 1 to 31) {
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))
