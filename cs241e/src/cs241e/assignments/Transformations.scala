@@ -98,11 +98,8 @@ object Transformations {
         }
         case BeqBne(bits, label) => symbolTable.get(label) match{
           case Some(address) => {
-            println("address of label is ", label, " ", address)
-            println(bits)
             location += 1 // since PC is already incremented, we are actualy at the next location
             val out =  Seq(Word(bits ++ encodeSigned(address/4 - location, 16)))
-            println("after doing word")
             out
           }
           case None => {
@@ -312,8 +309,6 @@ object Transformations {
       case IfStmt(elseLabel, e1, comp, e2, thens, elses) => {
         val e1Val = new Variable("e1 ");
         val endIfLabel = new Label("End If")
-        println("Then is ", thens)
-        println("comp is", comp)
         Scope(
           Seq(e1Val),
           block(

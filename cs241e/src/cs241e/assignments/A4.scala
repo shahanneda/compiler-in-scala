@@ -187,19 +187,18 @@ object A4 {
     */
 
   lazy val printIntegerCode: Code = {
-    Scope(Seq(), block(
-      ifStmt(ADD(Reg.result, Reg(1)), eq, ADD(Reg.result, Reg.zero), block(
+     block(
+      ifStmt(ADD(Reg.result, Reg(1)), eqCmp, ADD(Reg.result, Reg.zero), block(
         LIS(Reg.scratch),
         Word("1111 1111 1111 1111 0000 0000 0000 1100"),
 
         LIS(Reg.result),
-        Word(encodeUnsigned(38)), //  38 is 0 in ASCI
+        Word(encodeUnsigned(48)), //  48 is 0 in ASCI
         SW(Reg.result, 0, Reg.scratch),
       )),
 
       whileLoop(ADD(Reg.result, Reg(1)), neCmp, ADD(Reg.result, Reg.zero), block(
-        binOp(ADD(Reg.result, Reg(1)), remainder, constRes(10)),
-
+        binOp(binOp(ADD(Reg.result, Reg(1)), remainder, constRes(10)), plus, constRes(48)),
         Comment("Print remainder"),
         LIS(Reg.scratch),
         Word("1111 1111 1111 1111 0000 0000 0000 1100"),
@@ -218,7 +217,7 @@ object A4 {
       Word(encodeUnsigned(10)), //  10 is \n in ASCI
       SW(Reg.result, 0, Reg.scratch),
       JR(Reg(31))
-    ))
+    )
   }
   lazy val printInteger: MachineCode = compilerA4(printIntegerCode)
 }

@@ -101,7 +101,8 @@ class A4Tests extends FunSuite {
   }
 
   test("print Integer Code 1"){
-    val state = A4.loadAndRun(A4.outputLetters, Word(encodeSigned(12)), debug=true)
+    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(12)), debug=true)
+//    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(0)), debug=false)
     printState(state)
   }
   def printState(s: State): Unit = {
