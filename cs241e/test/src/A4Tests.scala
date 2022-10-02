@@ -78,7 +78,7 @@ class A4Tests extends FunSuite {
     val state = A4.loadAndRunArray(A4.lastElement,
       Seq()
       , true )
-    printState(state)
+//    printState(state)
     assert(state.reg(3) == Word(encodeSigned(-1)))
   }
   test("maximumArray1"){
@@ -97,20 +97,19 @@ class A4Tests extends FunSuite {
   test("output letters"){
     val array = Seq(0, 0, 1, 2, 3, 0,0, 1,2,3, 26, 26).map(x => Word(encodeSigned(x)))
     val state = A4.loadAndRunArray(A4.outputLetters, array, false )
-    printState(state)
+//    printState(state)
   }
 
   test("print Integer Code 1"){
-    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(12)), debug=false)
+//    println(encodeSigned(-2147483648))
+    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(-2147483648)), debug=false)
 //    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(0)), debug=false)
-    printState(state)
+//    printState(state)
   }
   def printState(s: State): Unit = {
     for (i <- 1 to 31) {
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))
     }
-    println("memory")
 
-    println(s.reg(Reg.targetPC.number))
   }
 }

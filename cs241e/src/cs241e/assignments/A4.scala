@@ -20,7 +20,6 @@ import ProgramRepresentation._
 import CodeBuilders._
 import A1._
 import cs241e.assignments
-import javafx.scene.web.HTMLEditorSkin.Command
 
 object A4 {
   /** This is an enhanced version of the loadAndRun method from Assignment 1.
@@ -187,10 +186,10 @@ object A4 {
     */
 
   lazy val printIntegerCode: Code = {
-
     val stackStart = new Variable("stack-start")
     val stackCurrent = new Variable("stack-current")
     val endLabel = new Label("end Label")
+    val printLabel = new Label("print val")
 
      Scope(Seq(stackStart, stackCurrent), block(
        LIS(Reg.result),
@@ -198,11 +197,80 @@ object A4 {
        write(stackStart, Reg.result),
        assign(stackCurrent, readVarRes(stackStart)),
 
+       // if is -2147483648, we hard code, since algorithm involves
+       // multiplying by *-1, which will fail since  2147483648 doesnt fit
+
+       ifStmt(ADD(Reg.result, Reg(1)), eqCmp, constRes(-2147483648), block(
+         // print -
+         LIS(Reg.scratch),
+         Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+         LIS(Reg.result),
+         Word(encodeUnsigned(45)), //  48 is - in ASCI
+         SW(Reg.result, 0, Reg.scratch),
+
+         // put number in stack
+         binOp(readVarRes(stackCurrent), plus, constRes(4)),
+         write(stackCurrent, Reg.result),
+         read(Reg.scratch, stackCurrent),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 8)),
+         SW(Reg.result, 0, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 4)),
+         SW(Reg.result, 4, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 6)),
+         SW(Reg.result, 8, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 3)),
+         SW(Reg.result, 12, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 8)),
+         SW(Reg.result, 16, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 4)),
+         SW(Reg.result, 20, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 7)),
+         SW(Reg.result, 24, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 4)),
+         SW(Reg.result, 28, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 1)),
+         SW(Reg.result, 32, Reg.scratch),
+
+         LIS(Reg.result),
+         Word(encodeSigned(48 + 2)),
+         SW(Reg.result, 36, Reg.scratch),
+
+
+         // put number in stack
+         binOp(readVarRes(stackCurrent), plus, constRes(36)), // 8 * 4
+         write(stackCurrent, Reg.result),
+         read(Reg.scratch, stackCurrent),
+
+         beq(Reg.zero, Reg.zero, printLabel)
+       )),
+
+
+
+       // if less than 1
        ifStmt(ADD(Reg.result, Reg(1)), ltCmp, ADD(Reg.result, Reg.zero),
          block(
-           // Times by -1
+           Comment("Times by -1"),
            binOp(ADD(Reg.result, Reg(1)), times, constRes(-1)),
            ADD(Reg(1), Reg.result),
+
 
            // print -
            LIS(Reg.scratch),
@@ -213,6 +281,7 @@ object A4 {
            SW(Reg.result, 0, Reg.scratch),
          )
        ),
+       // if 0
       ifStmt(ADD(Reg.result, Reg(1)), eqCmp, ADD(Reg.result, Reg.zero), block(
         LIS(Reg.scratch),
         Word("1111 1111 1111 1111 0000 0000 0000 1100"),
@@ -227,6 +296,7 @@ object A4 {
         binOp(readVarRes(stackCurrent), plus, constRes(4)),
         write(stackCurrent, Reg.result),
 
+        Comment("get remainder"),
         binOp(binOp(ADD(Reg.result, Reg(1)), remainder, constRes(10)), plus, constRes(48)),
 
         read(Reg.scratch, stackCurrent),
@@ -238,6 +308,7 @@ object A4 {
       )),
 
 
+       Define(printLabel),
        whileLoop(readVarRes(stackCurrent), neCmp, readVarRes(stackStart), block(
          Comment("print from stack"),
          readVarRes(stackCurrent),

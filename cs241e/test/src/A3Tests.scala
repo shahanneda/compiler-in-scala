@@ -52,7 +52,7 @@ class A3Tests extends FunSuite {
     val state = setMem(varTestBasic.words);
     Debugger.debug(state, varTestBasic.debugTable)
 
-    printState(loadAndRun(varTestBasic.words))
+    //printState(loadAndRun(varTestBasic.words))
   }
 
   test("maximumUnsigned"){
