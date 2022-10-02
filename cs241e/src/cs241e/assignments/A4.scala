@@ -187,7 +187,32 @@ object A4 {
     */
 
   lazy val printIntegerCode: Code = {
-     block(
+
+    val stackStart = new Variable("stack-start")
+    val stackCurrent = new Variable("stack-current")
+    val endLabel = new Label("end Label")
+
+     Scope(Seq(stackStart, stackCurrent), block(
+       LIS(Reg.result),
+       Use(endLabel),
+       write(stackStart, Reg.result),
+       assign(stackCurrent, readVarRes(stackStart)),
+
+       ifStmt(ADD(Reg.result, Reg(1)), ltCmp, ADD(Reg.result, Reg.zero),
+         block(
+           // Times by -1
+           binOp(ADD(Reg.result, Reg(1)), times, constRes(-1)),
+           ADD(Reg(1), Reg.result),
+
+           // print -
+           LIS(Reg.scratch),
+           Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+
+           LIS(Reg.result),
+           Word(encodeUnsigned(45)), //  48 is - in ASCI
+           SW(Reg.result, 0, Reg.scratch),
+         )
+       ),
       ifStmt(ADD(Reg.result, Reg(1)), eqCmp, ADD(Reg.result, Reg.zero), block(
         LIS(Reg.scratch),
         Word("1111 1111 1111 1111 0000 0000 0000 1100"),
@@ -198,26 +223,45 @@ object A4 {
       )),
 
       whileLoop(ADD(Reg.result, Reg(1)), neCmp, ADD(Reg.result, Reg.zero), block(
+        // increment stack
+        binOp(readVarRes(stackCurrent), plus, constRes(4)),
+        write(stackCurrent, Reg.result),
+
         binOp(binOp(ADD(Reg.result, Reg(1)), remainder, constRes(10)), plus, constRes(48)),
-        Comment("Print remainder"),
-        LIS(Reg.scratch),
-        Word("1111 1111 1111 1111 0000 0000 0000 1100"),
-        SW(Reg.result, 0, Reg.scratch),
+
+        read(Reg.scratch, stackCurrent),
+        SW(Reg.result, 0, Reg.scratch), // store remainder in stack current
 
         Comment("Divide by 10"),
         binOp(ADD(Reg.result, Reg(1)), divide, constRes(10)),
         ADD(Reg(1), Reg.result),
       )),
 
+
+       whileLoop(readVarRes(stackCurrent), neCmp, readVarRes(stackStart), block(
+         Comment("print from stack"),
+         readVarRes(stackCurrent),
+         LW(Reg.result, 0, Reg.result), // read from stack
+
+         LIS (Reg.scratch),
+         Word("1111 1111 1111 1111 0000 0000 0000 1100"),
+
+         SW(Reg.result, 0, Reg.scratch),
+
+         // Decrement stack
+         binOp(readVarRes(stackCurrent), minus, constRes(4)),
+         write(stackCurrent, Reg.result)
+       )),
+
       Comment("Print New line"),
       LIS(Reg.scratch),
       Word("1111 1111 1111 1111 0000 0000 0000 1100"),
-
       LIS(Reg.result),
       Word(encodeUnsigned(10)), //  10 is \n in ASCI
       SW(Reg.result, 0, Reg.scratch),
-      JR(Reg(31))
-    )
+      JR(Reg(31)),
+     Define(endLabel)
+    ))
   }
   lazy val printInteger: MachineCode = compilerA4(printIntegerCode)
 }

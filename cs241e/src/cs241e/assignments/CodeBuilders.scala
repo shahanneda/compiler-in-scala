@@ -72,7 +72,7 @@ object CodeBuilders {
   )
   lazy val remainder: Code = block(
     DIV(Reg.scratch, Reg.result),
-    MFHI(Reg.scratch),
+    MFHI(Reg.result),
   )
 
   lazy val divideUnsigned: Code = block(
