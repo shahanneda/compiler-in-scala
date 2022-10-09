@@ -102,6 +102,30 @@ class A5Tests extends FunSuite {
   }
 
 
+  test("getTreeHeight"){
+    def test = () => {
+      val arg1 = new Variable("arg1-main")
+      val arg2 = new Variable("arg2-main")
+      val main = new Procedure("main", Seq(arg1, arg2))
+
+//      val array = Seq(
+//        77, 3, 6, 22, -1, -1, -8, 9, 12, -36, -1, -1, 999, -1, -1
+//      ).map(x => Word(encodeSigned(x)))
+
+      val array = Seq(
+        77, 3, -1, 5, -1, -1
+      ).map(x => Word(encodeSigned(x)))
+
+      main.code = block(
+        call(treeHeight(0), read(Reg.result, arg1), read(Reg.result, arg2))
+      )
+
+      val code = compilerA5(Seq(main) ++ treeHeight)
+      printState(A4.loadAndRunArray(code, array, debug = false))
+    }
+    test()
+  }
+
   def printState(s: State): Unit = {
     for (i <- 1 to 31) {
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))

@@ -15,7 +15,8 @@ package cs241e.assignments
 
 import ProgramRepresentation._
 import CodeBuilders._
-import cs241e.assignments.Assembler.{ADD, LW}
+import cs241e.assignments.Assembler.{ADD, LIS, LW, encodeSigned}
+import cs241e.mips.Word
 
 object A5 {
   lazy val loop: Procedure = {
@@ -170,15 +171,72 @@ object A5 {
     *
     * This example tree has height 3.
     */
+  val getAtIndex = {
+    val index = new Variable("index")
+    val address = new Variable("address")
+
+    val proc = new Procedure("getAtIndex", Seq(index, address))
+    proc.code = block(
+      binOp(read(Reg.result, address), plus, binOp(read(Reg.result, index), times, constRes(4))),
+      LW(Reg.result, 0, Reg.result), // read value
+    )
+    proc
+  }
   lazy val treeHeight: Seq[Procedure] = {
     val array = new Variable("array")
     val length = new Variable("length")
     val treeHeight = new Procedure("treeHeight", Seq(array, length))
-    
-    treeHeight.code = ???
+
+    val index = new Variable("index")
+    val arrStart = new Variable("array start")
+    val currentValue = new Variable("value")
+    val leftHeight = new Variable("left height")
+    val rightHeight = new Variable("right height")
+
+    val treeHeightIndex = new Procedure("treeHeightIndex", Seq(index, arrStart))
+
+
+
+    treeHeightIndex.code = Scope( Seq(currentValue, leftHeight, rightHeight),  block(
+      ifStmt(read(Reg.result, index), eqCmp, constRes(-1),
+        block(
+          LIS(Reg.result),
+          Word(encodeSigned(0))
+        ), block(
+          // get value of current index
+          call(getAtIndex, read(Reg.result, index), read(Reg.result, arrStart)),
+          write(currentValue, Reg.result),
+//          call(printProcedure, read(Reg.result, currentValue)),
+          ifStmt(read(Reg.result, currentValue), eqCmp, constRes(-1),
+            block(
+              LIS(Reg.result),
+              Word(encodeSigned(0))
+            ),
+            block(
+              call(treeHeightIndex, call(getAtIndex, binOp(readVarRes(index), plus, constRes(1)),  readVarRes(arrStart)), readVarRes(arrStart)),
+              write(leftHeight, Reg.result) ,
+              call(treeHeightIndex, call(getAtIndex, binOp(readVarRes(index), plus, constRes(2)),  readVarRes(arrStart)), readVarRes(arrStart)),
+              write(rightHeight, Reg.result),
+
+              ifStmt(readVarRes(leftHeight), gtCmp, readVarRes(rightHeight),
+                block(
+                  binOp(readVarRes(leftHeight), plus, constRes(1)),
+                ),
+                block(
+                  binOp(readVarRes(rightHeight), plus, constRes(1)) ,
+                )
+              )
+            ))
+        )
+      ),
+    ))
+
+    treeHeight.code = block(
+      call(treeHeightIndex, constRes(0), read(Reg.result, array))
+    )
     /* You may, but are not required to, define and use more procedures in addition to `treeHeight`.
      * `treeHeight` must be the first procedure in the sequence that is returned.
      */
-    Seq(treeHeight, ??? )
+    Seq(treeHeight, getAtIndex, treeHeightIndex, printProcedure)
   }
 }
