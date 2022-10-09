@@ -121,7 +121,9 @@ class A5Tests extends FunSuite {
       )
 
       val code = compilerA5(Seq(main) ++ treeHeight)
-      printState(A4.loadAndRunArray(code, array, debug = false))
+//      printState(A4.loadAndRunArray(code, array, debug = false))
+      val a = A4.loadAndRunArray(code, array, debug = false)
+      assert(a.reg(3) == encodeUnsigned(2))
     }
     test()
   }
