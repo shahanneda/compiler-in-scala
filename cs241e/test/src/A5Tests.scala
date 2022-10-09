@@ -4,8 +4,10 @@ import cs241e.assignments.CodeBuilders._
 import cs241e.assignments.ProgramRepresentation._
 import cs241e.assignments.Transformations._
 import cs241e.assignments._
-import cs241e.mips.{State, Word}
+import cs241e.mips.{CPU, State, Word}
 import org.scalatest.FunSuite
+
+import java.io.{ByteArrayOutputStream, PrintStream}
 
 /* This is an example of a class for running and testing your code. Add other testing methods here
  * and/or create additional classes like this one.
@@ -64,64 +66,68 @@ class A5Tests extends FunSuite {
 
 
   test("printArray"){
-    val arg1 = new Variable("arg1-main")
-    val arg2 = new Variable("arg2-main")
-    val main = new Procedure("main", Seq(arg1, arg2))
+    def test = () => {
+      val arg1 = new Variable("arg1-main")
+      val arg2 = new Variable("arg2-main")
+      val main = new Procedure("main", Seq(arg1, arg2))
 
-    val array = Seq(3, 49, 0, -234, 2343294, 234, 2349).map(x => Word(encodeSigned(x)))
+      val array = Seq(3, 49, 0, -234).map(x => Word(encodeSigned(x)))
 
-    main.code = block(
-      call(printArray, read(Reg.result, arg1), read(Reg.result, arg2))
-    )
+      main.code = block(
+        call(printArray, read(Reg.result, arg1), read(Reg.result, arg2))
+      )
 
-    val code = compilerA5(Seq(main, printArray, printProcedure))
-    printState(A4.loadAndRunArray(code, array, debug = false))
+      val code = compilerA5(Seq(main, printArray, printProcedure))
+      printState(A4.loadAndRunArray(code, array, debug = false))
+    }
+    testWithOutput(test, "3\n49\n0\n-234\n")
   }
 
-  test("lastElement"){
-    val state = A4.loadAndRunArray(A4.lastElement,
-      Seq(Word(encodeUnsigned(0)), Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), Word(encodeUnsigned(3)), Word(encodeUnsigned(99)))
-      , true )
-    printState(state)
-    assert(state.reg(3) == Word(encodeUnsigned(99)))
+  test("printArrayEmpty"){
+    def test = () => {
+      val arg1 = new Variable("arg1-main")
+      val arg2 = new Variable("arg2-main")
+      val main = new Procedure("main", Seq(arg1, arg2))
+
+      val array = Seq().map(x => Word(encodeSigned(x)))
+
+      main.code = block(
+        call(printArray, read(Reg.result, arg1), read(Reg.result, arg2))
+      )
+
+      val code = compilerA5(Seq(main, printArray, printProcedure))
+      printState(A4.loadAndRunArray(code, array, debug = false))
+    }
+    testWithOutput(test, "")
   }
 
-  test("lastElementEmpty"){
-    val state = A4.loadAndRunArray(A4.lastElement,
-      Seq()
-      , true )
-//    printState(state)
-    assert(state.reg(3) == Word(encodeSigned(-1)))
-  }
-  test("maximumArray1"){
-    val array = Seq(1, 2, 99, 2, 4, 9).map(x => Word(encodeUnsigned(x)))
-    val state = A4.loadAndRunArray(A4.arrayMaximum, array, true )
-    printState(state)
-    assert(state.reg(3) == Word(encodeUnsigned(99)))
-  }
-  test("maximumArray2"){
-    val array = Seq(-3, 2, 99, 2, 4, -34).map(x => Word(encodeSigned(x)))
-    val state = A4.loadAndRunArray(A4.arrayMaximum, array, true )
-    printState(state)
-    assert(state.reg(3) == Word(encodeUnsigned(99)))
-  }
 
-  test("output letters"){
-    val array = Seq(0, 0, 1, 2, 3, 0,0, 1,2,3, 26, 26).map(x => Word(encodeSigned(x)))
-    val state = A4.loadAndRunArray(A4.outputLetters, array, false )
-//    printState(state)
-  }
-
-  test("print Integer Code 1"){
-//    println(encodeSigned(-2147483648))
-    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(-2147483648)), debug=false)
-//    val state = A4.loadAndRun(A4.printInteger, Word(encodeSigned(0)), debug=false)
-//    printState(state)
-  }
   def printState(s: State): Unit = {
     for (i <- 1 to 31) {
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))
     }
 
+  }
+  def testWithOutput(test: () => Unit, output: String): Unit ={
+    // Obtain a Field handle and mark it accessible (ignoring the private modifier)
+    val stream = CPU.getClass.getDeclaredField("outputStream")
+    stream.setAccessible(true)
+    // Save the old value of the field
+    val prev = stream.get(CPU)
+    // Create a new stream
+    val buffer = new ByteArrayOutputStream
+
+    try {
+      // Set the field to our new stream
+      stream.set(CPU, new PrintStream(buffer))
+
+      test()
+
+      // Retrieve the output using buffer.toString
+      assert(buffer.toString == output)
+    } finally {
+      // Restore the old value of the field
+      stream.set(CPU, prev)
+    }
   }
 }
