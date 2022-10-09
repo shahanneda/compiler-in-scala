@@ -15,6 +15,7 @@ package cs241e.assignments
 
 import ProgramRepresentation._
 import CodeBuilders._
+import cs241e.assignments.Assembler.{ADD, LW}
 
 object A5 {
   lazy val loop: Procedure = {
@@ -35,6 +36,49 @@ object A5 {
     )
     procedure
   }
+
+  val procedure2 = new Procedure("other", Seq())
+
+  lazy val twoProTest: Procedure = {
+    val arg1 = new Variable("arg 1 of procedure")
+
+    val testinnervar = new Variable("tt")
+    val testinnervar2 = new Variable("tt")
+    val testinnervar3 = new Variable("tt")
+    procedure2.code = Scope(Seq(testinnervar, testinnervar2, testinnervar3), block())
+
+
+    val varb = new Variable("test variable")
+
+    val procedure = new Procedure("primary", Seq(arg1))
+    procedure.code = Scope(Seq(varb), block(
+      Comment("loading into reg 3"),
+      read(Reg.result, arg1),
+      write(varb, Reg.result),
+      read(Reg.result, varb),
+
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(printProcedure, read(Reg.result, varb)),
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(printProcedure, read(Reg.result, varb)),
+      call(procedure2),
+      call(procedure2),
+
+      read(Reg.result, varb),
+    ))
+    procedure
+  }
+
   /** The code of `printInteger` from Assignment 4 encapsulated as a `Procedure`. The procedure should have
     * exactly one parameter, the integer to be printed. */
   lazy val printProcedure: Procedure = {
@@ -56,9 +100,28 @@ object A5 {
     * Test this procedure by compiling it with `printProcedure` and running it on various arrays.
     */
   lazy val printArray: Procedure = {
-    ???
-    val procedure = new Procedure("printArray", ???)
-    procedure.code = ???
+    val arrAddress = new Variable("array address")
+    val arrayLen = new Variable("array length")
+    val procedure = new Procedure("printArray", Seq(arrAddress, arrayLen))
+    val i = new Variable("i")
+    procedure.code = block(
+      Scope(Seq(i),
+        block(
+          whileLoop(read(Reg.result, i), ltCmp, read(Reg.result, arrayLen), block(
+            // arrAddres + i * 4
+            Comment("Array address in register 3:"),
+            read(Reg.result, arrAddress),
+            binOp(read(Reg.result, arrAddress), plus, binOp(read(Reg.result, i), times, constRes(4))),
+            Comment("Finished calculating new index, now loading the result from memory (index in reg 3)"),
+            LW(Reg.result, 0, Reg.result),
+
+            call(printProcedure, ADD(Reg.result, Reg.result)),
+
+            binOp(read(Reg.result, i), plus, constRes(1)),
+            write(i, Reg.result),
+        )
+      )
+    )))
     procedure
   }
 

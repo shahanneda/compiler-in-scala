@@ -47,6 +47,37 @@ class A5Tests extends FunSuite {
     printState(A4.loadAndRun(code, debug = false))
   }
 
+  test("twofunctiontest"){
+    val arg1 = new Variable("arg1-main")
+    val arg2 = new Variable("arg2-main")
+    val main = new Procedure("main", Seq(arg1, arg2))
+
+    main.code = block(
+      LIS(Reg.scratch),
+      Word(encodeSigned(500)),
+      Call(twoProTest, Seq(ADD(Reg.result, Reg.scratch))) ,
+    )
+
+    val code = compilerA5(Seq(main, twoProTest, procedure2, printProcedure))
+    printState(A4.loadAndRun(code, debug = false))
+  }
+
+
+  test("printArray"){
+    val arg1 = new Variable("arg1-main")
+    val arg2 = new Variable("arg2-main")
+    val main = new Procedure("main", Seq(arg1, arg2))
+
+    val array = Seq(3, 49, 0, -234, 2343294, 234, 2349).map(x => Word(encodeSigned(x)))
+
+    main.code = block(
+      call(printArray, read(Reg.result, arg1), read(Reg.result, arg2))
+    )
+
+    val code = compilerA5(Seq(main, printArray, printProcedure))
+    printState(A4.loadAndRunArray(code, array, debug = false))
+  }
+
   test("lastElement"){
     val state = A4.loadAndRunArray(A4.lastElement,
       Seq(Word(encodeUnsigned(0)), Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), Word(encodeUnsigned(3)), Word(encodeUnsigned(99)))

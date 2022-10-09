@@ -88,13 +88,14 @@ object Debugger {
       }
 
       // Redefine registersToPrint to inspect other registers.
-      val registersToPrint = List(1, 3, 4)
+      val registersToPrint = List(1, 3, 4, 29, 5)
 //      def printReg(reg: Int) = s"$reg: ${state.reg(reg)}   "
       def printReg(reg: Int) = s"$reg: ${decodeSigned(state.reg(reg))}   "
 
       print(registersToPrint.map(printReg).mkString + "   ")
 //      println(s"${state.reg(PC)}: ${disasmed}")
-      println(s"${disasmed} ${state.mem(state.reg(PC))}")
+      println(s"${disasmed}")
+//      println(s"${disasmed} ${state.mem(state.reg(PC))}")
 
       debug(CPU.step(state), debugTable)
     }

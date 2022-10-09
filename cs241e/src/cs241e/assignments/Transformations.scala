@@ -511,12 +511,17 @@ object Transformations {
                 frame.store(Reg.framePointer, variable, register)
               }
             }else if (params.variables.contains(variable)){
-              frame.load(Reg.framePointer, Reg.savedParamPtr, currentProcedure.paramPtr)
               val paramFrame = paramChunks(currentProcedure)
               if(read){
-                paramFrame.load(Reg.savedParamPtr, register, variable)
+                block(
+                  frame.load(Reg.framePointer, Reg.savedParamPtr, currentProcedure.paramPtr),
+                  paramFrame.load(Reg.savedParamPtr, register, variable)
+                )
               }else{
-                paramFrame.store(Reg.savedParamPtr, variable, register)
+                block(
+                  frame.load(Reg.framePointer, Reg.savedParamPtr, currentProcedure.paramPtr),
+                  paramFrame.store(Reg.savedParamPtr, variable, register)
+                )
               }
             }else{
               sys.error("Variable not in params or in chunk! " + variable.name)
