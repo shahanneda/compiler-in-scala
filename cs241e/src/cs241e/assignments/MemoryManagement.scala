@@ -87,7 +87,7 @@ object MemoryManagement {
     def load(baseRegister: Reg, register: Reg, variable: Variable): Code = {
       variableToOffset.get(variable) match {
         case Some(offset) => block(
-          Comment("load: " + variable.name),
+          Comment("load: " + variable.name + register + offset + baseRegister),
           LW(register, offset, baseRegister)
         )
         case None => sys.error("Trying to load variable not in chunk: " + variable.name)

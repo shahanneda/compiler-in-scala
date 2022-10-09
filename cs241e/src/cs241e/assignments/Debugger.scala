@@ -94,7 +94,7 @@ object Debugger {
 
       print(registersToPrint.map(printReg).mkString + "   ")
 //      println(s"${state.reg(PC)}: ${disasmed}")
-      println(s"${disasmed}")
+      println(s"${disasmed} ${state.mem(state.reg(PC))}")
 
       debug(CPU.step(state), debugTable)
     }

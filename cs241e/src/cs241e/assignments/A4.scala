@@ -93,7 +93,6 @@ object A4 {
           Word(encodeSigned(-1))
         )
       ),
-      JR(Reg(31))
     )
     compilerA4(code)
   }
@@ -190,6 +189,7 @@ object A4 {
     val stackCurrent = new Variable("stack-current")
     val endLabel = new Label("end Label")
     val printLabel = new Label("print val")
+    val stackEnd = new Label(" stack end")
 
      Scope(Seq(stackStart, stackCurrent), block(
        LIS(Reg.result),
@@ -330,8 +330,13 @@ object A4 {
       LIS(Reg.result),
       Word(encodeUnsigned(10)), //  10 is \n in ASCI
       SW(Reg.result, 0, Reg.scratch),
-      JR(Reg(31)),
-     Define(endLabel)
+       LIS(Reg.result),
+      Use(stackEnd),
+       JR(Reg.result),
+       Define(endLabel),
+       // Reserve some space on the stack for printing
+     Block(Seq.range(0, 200).map(x => Word(encodeUnsigned(0)))),
+       Define(stackEnd),
     ))
   }
   lazy val printInteger: MachineCode = compilerA4(printIntegerCode)

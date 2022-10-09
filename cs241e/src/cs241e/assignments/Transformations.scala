@@ -350,7 +350,7 @@ object Transformations {
     * sequence will also be set to true.
     */
   def createTempVars(params: Seq[Variable]): Seq[Variable] =
-    params.map(param => new Variable("temp", param.isPointer))
+    params.map(param => new Variable("temp-" + param.name, param.isPointer))
 
   /** Given a set of `keys` for a map and a `function`, applies the function to each key, and stores
     * the result in a `Map` from `keys` to the `function` values.
@@ -393,7 +393,32 @@ object Transformations {
           case call: Call =>
             val caller = currentProcedure
             val callee = call.procedure
-            ???
+            val tempVars = createTempVars(call.procedure.parameters).toList
+            val paramChunk = paramChunks.get(call.procedure) match {
+              case Some(value) => value
+              case None => sys.error("Param chunk not found for procedure with name " + call.procedure.name)
+            }
+            Scope(tempVars, block(
+              Comment("Start of call to " +  callee.name + " from " + caller.name),
+              Block(call.arguments.zipWithIndex.map{ case (argCode, i) => {
+                block(
+                  argCode,
+                  write(tempVars(i), Reg.result),
+                )
+              }}),
+              Stack.allocate(paramChunk),
+              Block(
+                paramChunk.variables.zipWithIndex.map{case (paramVar, i) =>
+                  block(
+                    read(Reg.scratch, tempVars(i)),
+                    paramChunk.store(Reg.result, paramVar, Reg.scratch)
+                  )
+                },
+              ),
+              LIS(Reg.targetPC),
+              Use(callee.label),
+              JALR(Reg.targetPC),
+            ))
         }
 
         transformCode(code, fun)
@@ -405,7 +430,9 @@ object Transformations {
       val (code3, variables) = eliminateScopes(code2)
       assert(variables.distinct == variables)
 
-      val frame = Chunk(???)
+      val frame = Chunk(variables ++
+        Seq(currentProcedure.savedPC, currentProcedure.paramPtr, currentProcedure.dynamicLink)
+      )
 
       /** Adds a prologue and epilogue to the `code` of a procedure.
         *
@@ -433,11 +460,27 @@ object Transformations {
         */
       def addEntryExit(code: Code): Code = {
         val enter = block(
-          ???
+          ADD(Reg.savedParamPtr, Reg.result), // store param ptr until we make a proper frame
+          Stack.allocate(frame),
+          frame.store(Reg.result, currentProcedure.savedPC, Reg.link), // store return address
+          frame.store(Reg.result, currentProcedure.paramPtr, Reg.savedParamPtr), // store saved param pointer
+          frame.store(Reg.result, currentProcedure.dynamicLink, Reg.framePointer), // save callers frame pointer
+          ADD(Reg.framePointer, Reg.result), // set the new frame pointer
+          Comment("Start of body for " + currentProcedure.name),
         )
         val exit = block(
-          ???
+          Comment("End of body for " + currentProcedure.name),
+          frame.load(Reg.framePointer, Reg.link, currentProcedure.savedPC), // load return address
+          Comment("Restoring older frame pointer in procedure " + currentProcedure.name),
+          frame.load(Reg.framePointer, Reg.framePointer, currentProcedure.dynamicLink), // load old frame pointer
+          Comment("after restore " + currentProcedure.name),
+          Stack.pop, // pops stack frame
+          Stack.pop, // pops params frame
+          JR(Reg.link),
         )
+        if(code == null){
+          sys.error("No body given for procedure: " + currentProcedure.name)
+        }
         block(Define(currentProcedure.label), enter, code, exit)
       }
 
@@ -458,7 +501,29 @@ object Transformations {
         * Hint: this method can use the `frame` from its enclosing procedure `compileProcedure`.
         */
       def eliminateVarAccessesA5(code: Code): Code = {
-        def fun: PartialFunction[Code, Code] = ???
+        def fun: PartialFunction[Code, Code] = {
+          case VarAccess(register, variable, read) =>{
+            val params = paramChunks.getOrElse(currentProcedure, sys.error("Failed to find params for current procedure"))
+            if(frame.variables.contains(variable)){
+              if(read){
+                frame.load(Reg.framePointer, register, variable)
+              }else{
+                frame.store(Reg.framePointer, variable, register)
+              }
+            }else if (params.variables.contains(variable)){
+              frame.load(Reg.framePointer, Reg.savedParamPtr, currentProcedure.paramPtr)
+              val paramFrame = paramChunks(currentProcedure)
+              if(read){
+                paramFrame.load(Reg.savedParamPtr, register, variable)
+              }else{
+                paramFrame.store(Reg.savedParamPtr, variable, register)
+              }
+            }else{
+              sys.error("Variable not in params or in chunk! " + variable.name)
+            }
+
+          }
+        }
 
         transformCode(code, fun)
       }

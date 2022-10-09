@@ -207,7 +207,10 @@ object ProgramRepresentation {
                   val parameters: Seq[Variable],
                   val outer: Option[Procedure] = None) {
     /** The nesting depth of the procedure (the number of outer procedures inside which it is nested). */
-    lazy val depth: Int = ???
+    lazy val depth: Int = outer match {
+      case Some(procedure) => procedure.depth + 1
+      case None => 0
+    }
 
     /** Holds the address of the `Chunk` of parameters that was passed in from the caller. */
     val paramPtr: Variable = new Variable(s"param pointer of $name", isPointer = true)

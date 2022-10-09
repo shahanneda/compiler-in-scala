@@ -17,17 +17,32 @@ import ProgramRepresentation._
 import CodeBuilders._
 
 object A5 {
+  lazy val loop: Procedure = {
+    val arg1 = new Variable("arg 1 of procedure")
+    val procedure = new Procedure("loopProcedure", Seq(arg1))
+    procedure.code = block(
+      ifStmt(read(Reg.result, arg1), ltCmp, constRes(100), block(
+        Call(procedure, Seq(binOp(
+          read(Reg.result, arg1),
+          plus,
+          constRes(1)
+        ))
+        )
+      ),
+        // else
+        read(Reg.result, arg1),
+      )
+    )
+    procedure
+  }
   /** The code of `printInteger` from Assignment 4 encapsulated as a `Procedure`. The procedure should have
     * exactly one parameter, the integer to be printed. */
   lazy val printProcedure: Procedure = {
-    ???
-    val procedure = new Procedure("printProcedure", ???)
+    val arg1 = new Variable("arg 1 of procedure")
+    val procedure = new Procedure("printProcedure", Seq(arg1))
     procedure.code = block(
-      // You may add code here before and/or after `A4.printIntegerCode`. If you do not want any
-      // code before or after, replace the ??? with an empty `block()`.
-      ???,
+      read(Reg(1), arg1),
       A4.printIntegerCode,
-      ???
     )
     procedure
   }
