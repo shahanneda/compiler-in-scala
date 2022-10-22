@@ -580,7 +580,10 @@ object Transformations {
     val procedures = startProcedure(inputProcedures.head) +: inputProcedures
 
     /** The `Chunk` to store the parameters and static link of each procedure. */
-    val paramChunks: Map[Procedure, Chunk] = makeMap(procedures, procedure => ???)
+    val paramChunks: Map[Procedure, Chunk] = makeMap(procedures, procedure => {
+      new Chunk(procedure.parameters ++ Seq(procedure.staticLink))
+    }
+    )
 
     /** The set of procedures whose frame needs to be allocated on the heap (instead of on the stack).
       * This includes:
@@ -610,7 +613,60 @@ object Transformations {
         */
       def computeStaticLink(callee: Procedure): Code = {
         val caller = currentProcedure
-        ???
+        val outer = callee.outer
+
+        if(outer == null){
+          ADD(Reg.result, Reg.zero)
+        }else{
+          var numberOfStaticLinkJumpsNeeded = callee.depth - currentProcedure.depth + 1;
+          if(numberOfStaticLinkJumpsNeeded == 0){
+            ADD(Reg.result, Reg.framePointer)
+          }else{
+            var oneUnderEnclosing = currentProcedure;
+
+            while(numberOfStaticLinkJumpsNeeded > 1){
+              if(oneUnderEnclosing == null){
+                sys.error("Trying to follow static links but given null for outer!")
+              }
+//              instructions = instructions ++ Seq(
+////                oneUnderEnclosing.outer.orNull.
+////                block(
+////                  Comment("Computing static link jump " + numberOfStaticLinkJumpsNeeded),
+////                  // load frame
+//////                  paramChunks(currentProcedure).load(Reg.framePointer, Reg.result, frameVar),
+////                  read(Reg.result, frameVar)
+////                  // load param chunk from the frame
+////                  paramChunks(currentProcedure).load(Reg.result, Reg.result, oneUnderEnclosing.paramPtr),
+////                  //load static link in the param chunck
+////                  paramChunks(oneUnderEnclosing).load(Reg.result, Reg.result, oneUnderEnclosing.staticLink),
+////
+////                  paramChunks(currentProcedure).store(Reg.framePointer, frameVar, Reg.result)
+////                )
+//              );
+              numberOfStaticLinkJumpsNeeded -= 1
+              oneUnderEnclosing = oneUnderEnclosing.outer.orNull;
+            }
+
+            //                    block(paramChunks(currentProcedure).load(Reg.framePointer, Reg.result, frameVar))
+        //                    ADD(Reg.result, oneUnderEnclosing.si )
+              block(
+                      read(Reg.result, oneUnderEnclosing.staticLink)
+              )
+
+          }
+
+
+//          val i = new Variable("static link jump counter")
+//          val static = new Variable("static link tmp")
+//          Scope( Seq(i, static),
+//            block(
+//              write(static, currentProcedure.)
+//              LIS(Reg.scratch),
+//              Word(encodeUnsigned(numberOfStaticLinksFollowed)),
+//              whileLoop(read(Reg.result, i), gtCmp, ADD(Reg.result, Reg.zero), block())
+//            )
+//          )
+        }
       }
 
       /** Eliminate all `Call`s and `CallClosure`s from a tree of `Code` by translating them to simpler pieces
@@ -623,7 +679,47 @@ object Transformations {
         val caller = currentProcedure
         
 
-        def fun: PartialFunction[Code, Code] = ???
+        def fun: PartialFunction[Code, Code] = {
+          case Call(procedure, args, isTail) => {
+            val caller = currentProcedure
+            val callee = procedure
+            val tempVars = createTempVars(procedure.parameters).toList
+            val tmpStaticLink = new Variable("temp static link")
+            val paramChunk = paramChunks.get(procedure) match {
+              case Some(value) => value
+              case None => sys.error("Param chunk not found for procedure with name " + procedure.name)
+            }
+            Scope(tempVars ++ Seq(tmpStaticLink), block(
+              Comment("Start of call to " + callee.name + " from " + caller.name),
+              Block(args.zipWithIndex.map { case (argCode, i) => {
+                block(
+                  argCode,
+                  write(tempVars(i), Reg.result),
+                )
+              }
+              }),
+              computeStaticLink(callee),
+              write(tmpStaticLink, Reg.result),
+              Stack.allocate(paramChunk),
+              Block(
+                paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
+                  block(
+                    read(Reg.scratch, tempVars(i)),
+                    paramChunk.store(Reg.result, paramVar, Reg.scratch)
+                  )
+                },
+              ),
+              read(Reg.scratch, tmpStaticLink),
+              paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
+              LIS(Reg.targetPC),
+              Use(callee.label),
+              JALR(Reg.targetPC),
+            ))
+          }
+          //case Closure(procedure) => ???
+          //case CallClosure(closure, arguments, parameters, isTail) => ???
+        }
+
 
         transformCode(code, fun)
       }
@@ -656,7 +752,12 @@ object Transformations {
       val (code5, variables) = eliminateScopes(code4)
       assert(variables.distinct == variables)
 
-      val frame = Chunk(???)
+      val frame = Chunk(variables ++ Seq(
+        currentProcedure.savedPC,
+        currentProcedure.paramPtr,
+        currentProcedure.staticLink,
+        currentProcedure.dynamicLink,
+      ))
 
       (code5, frame)
     }
@@ -690,8 +791,31 @@ object Transformations {
         * Warning: this method transforms code after `eliminateVarAccesses` has been called. Therefore, this method
         * should not introduce any new `VarAccess`es into the code (by calling `read` or `write`).
         */
-      def addEntryExit(code: Code): Code = ???
-
+      def addEntryExit(code: Code): Code = {
+        val enter = block(
+          ADD(Reg.savedParamPtr, Reg.result), // store param ptr until we make a proper frame
+          Stack.allocate(frame),
+          frame.store(Reg.result, currentProcedure.savedPC, Reg.link), // store return address
+          frame.store(Reg.result, currentProcedure.paramPtr, Reg.savedParamPtr), // store saved param pointer
+          frame.store(Reg.result, currentProcedure.dynamicLink, Reg.framePointer), // save callers frame pointer
+          ADD(Reg.framePointer, Reg.result), // set the new frame pointer
+          Comment("Start of body for " + currentProcedure.name),
+        )
+        val exit = block(
+          Comment("End of body for " + currentProcedure.name),
+          frame.load(Reg.framePointer, Reg.link, currentProcedure.savedPC), // load return address
+          Comment("Restoring older frame pointer in procedure " + currentProcedure.name),
+          frame.load(Reg.framePointer, Reg.framePointer, currentProcedure.dynamicLink), // load old frame pointer
+          Comment("after restore " + currentProcedure.name),
+          Stack.pop, // pops stack frame
+          Stack.pop, // pops params frame
+          JR(Reg.link),
+        )
+        if(code == null){
+          sys.error("No body given for procedure: " + currentProcedure.name)
+        }
+        block(Define(currentProcedure.label), enter, code, exit)
+      }
       /** Eliminate all `VarAccess`es from a tree of `Code` by replacing them with machine language code for
         * reading or writing the relevant variable.
         *
@@ -715,7 +839,69 @@ object Transformations {
         * in the chunk.
         */
       def eliminateVarAccesses(code: Code): Code = {
-        def fun: PartialFunction[Code, Code] = ???
+        def fun: PartialFunction[Code, Code] = {
+          case VarAccess(reg, variable, read) => {
+            var currentFrame = new Variable("going up static links - current frame pointer")
+
+            // the frame of the method calling
+            val actualFrame = frame
+
+            def getValInProcedure( procedure: Procedure): Code ={
+              // assumes that the actualFrame variable has the pointer to the currentFrameObject
+              val paramChunk = paramChunks.getOrElse(procedure, sys.error("failed to get param chunk"))
+              val currentFrameChunk = phaseOneResults(procedure)._2
+
+              if(currentFrameChunk.variables.contains(variable)){
+                if(read){
+                  block(
+                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                    // load this variable
+                    currentFrameChunk.load(Reg.result, reg, variable),
+                  )
+                }else{
+                  block(
+                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                    // load this variable
+                    currentFrameChunk.store(Reg.result,  variable, reg),
+                  )
+                }
+              }else if(procedure.parameters.contains(variable)){
+                if(read){
+                  block(
+                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                    currentFrameChunk.load(Reg.result, Reg.result, procedure.paramPtr),
+
+                    // load this variable
+                    paramChunk.load(Reg.result, reg, variable),
+                  )
+                }else{
+                  block(
+                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                    currentFrameChunk.load(Reg.result, Reg.result, procedure.paramPtr),
+
+                    // load this variable
+                    paramChunk.store(Reg.result, variable, reg),
+                  )
+                }
+              }
+                // have to follow static links
+              else{
+                block(
+                  actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                  currentFrameChunk.load(Reg.result, Reg.result, procedure.paramPtr),
+                  paramChunk.load(Reg.result, Reg.result, procedure.staticLink),
+                  actualFrame.store(Reg.framePointer, currentFrame, Reg.result),
+                  getValInProcedure(procedure.outer.getOrElse(sys.error("Could not find variable anywhere!! : " + variable))),
+                )
+              }
+            }
+
+            block(
+              actualFrame.store(Reg.framePointer, currentFrame, Reg.framePointer),
+              getValInProcedure(currentProcedure)
+            )
+          }
+        }
 
         transformCode(code, fun)
       }
