@@ -46,6 +46,9 @@ object Reg {
   /** An extra scratch register available to be used by the garbage collector. */
   val scratchPtrForGC = Reg(9)
 
+  /** An extra scratch register for doing static links*/
+  val scratchForStaticLink = Reg(10)
+
   /** The special register that always has the value zero. */
   val zero = Reg(0)
 }

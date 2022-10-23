@@ -23,21 +23,37 @@ class A6Tests extends FunSuite {
     val arg2 = new Variable("arg2-main")
 
     val main = new Procedure("main", Seq(arg1, arg2))
-    val f = new Procedure("f", Seq())
-    f.code = block(
-      Comment("f body"),
-      LIS(Reg.scratch),
-      Word(encodeSigned(0)),
+//    val garg1 = new Variable("garg1")
+    val f = new Procedure("f", Seq(), Option(main))
+    val g = new Procedure("g", Seq(), Option(f))
+
+    val fvar = new Variable("fvar");
+
+    f.code = Scope(Seq(fvar),
+      block(
+        Comment("f body"),
+        LIS(Reg.result),
+        Word(encodeSigned(50)),
+        write(fvar, Reg.result),
+        read(Reg(13), arg1),
+
+        Call(g, Seq())
+      )
+    )
+
+    g.code = block(
+      read(Reg(14), arg2),
+      read(Reg(15), fvar)
     )
 
     main.code = block(
-      LIS(Reg.scratch),
-      Word(encodeSigned(0)),
       Call(f, Seq()) ,
     )
+    // 8 from 16777168
 
-    val code = compilerA6(Seq(main, f))
-    printState(A4.loadAndRun(code, debug = true))
+    val code = compilerA6(Seq(main, f, g))
+    printState(A4.loadAndRun(code, Word(encodeUnsigned(555)), Word(encodeUnsigned(666)), debug = false))
+//    printState(A4.loadAndRun(code, debug = false))
   }
   test("loop procedure"){
     val arg1 = new Variable("arg1-main")

@@ -616,9 +616,13 @@ object Transformations {
         val outer = callee.outer
 
         if(outer == null){
-          ADD(Reg.result, Reg.zero)
+          block(
+            Comment("No jumps needed!"),
+            ADD(Reg.result, Reg.zero)
+          )
+
         }else{
-          var numberOfStaticLinkJumpsNeeded = callee.depth - currentProcedure.depth + 1;
+          var numberOfStaticLinkJumpsNeeded = caller.depth - callee.depth + 1;
           if(numberOfStaticLinkJumpsNeeded == 0){
             ADD(Reg.result, Reg.framePointer)
           }else{
@@ -644,7 +648,9 @@ object Transformations {
 ////                )
 //              );
               numberOfStaticLinkJumpsNeeded -= 1
-              oneUnderEnclosing = oneUnderEnclosing.outer.orNull;
+              if(numberOfStaticLinkJumpsNeeded != 1){
+                oneUnderEnclosing = oneUnderEnclosing.outer.orNull;
+              }
             }
 
             //                    block(paramChunks(currentProcedure).load(Reg.framePointer, Reg.result, frameVar))
@@ -693,7 +699,9 @@ object Transformations {
               Comment("Start of call to " + callee.name + " from " + caller.name),
               Block(args.zipWithIndex.map { case (argCode, i) => {
                 block(
+                  Comment("Evaluating arg code " + i),
                   argCode,
+                  Comment("writing to temp var " + tempVars(i)),
                   write(tempVars(i), Reg.result),
                 )
               }
@@ -703,14 +711,19 @@ object Transformations {
               Stack.allocate(paramChunk),
               Block(
                 paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
-                  block(
-                    read(Reg.scratch, tempVars(i)),
-                    paramChunk.store(Reg.result, paramVar, Reg.scratch)
-                  )
+                  if(paramVar == procedure.staticLink){
+                    block(
+                      read(Reg.scratch, tmpStaticLink),
+                      paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
+                    )
+                  }else{
+                    block(
+                      read(Reg.scratch, tempVars(i)),
+                      paramChunk.store(Reg.result, paramVar, Reg.scratch)
+                    )
+                  }
                 },
               ),
-              read(Reg.scratch, tmpStaticLink),
-              paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
               LIS(Reg.targetPC),
               Use(callee.label),
               JALR(Reg.targetPC),
@@ -841,7 +854,7 @@ object Transformations {
       def eliminateVarAccesses(code: Code): Code = {
         def fun: PartialFunction[Code, Code] = {
           case VarAccess(reg, variable, read) => {
-            var currentFrame = new Variable("going up static links - current frame pointer")
+//            val currentFrame = new Variable("going up static links - current frame pointer")
 
             // the frame of the method calling
             val actualFrame = frame
@@ -854,51 +867,54 @@ object Transformations {
               if(currentFrameChunk.variables.contains(variable)){
                 if(read){
                   block(
-                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+//                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+//                    ADD(Reg.result, Reg.scratchForStaticLink),
                     // load this variable
-                    currentFrameChunk.load(Reg.result, reg, variable),
+                    currentFrameChunk.load(Reg.scratchForStaticLink, reg, variable),
                   )
                 }else{
                   block(
-                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+//                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+//                    ADD(Reg.result, Reg.scratchForStaticLink),
                     // load this variable
-                    currentFrameChunk.store(Reg.result,  variable, reg),
+                    currentFrameChunk.store(Reg.scratchForStaticLink,  variable, reg),
                   )
                 }
               }else if(procedure.parameters.contains(variable)){
                 if(read){
                   block(
-                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
-                    currentFrameChunk.load(Reg.result, Reg.result, procedure.paramPtr),
+//                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+//                    ADD(Reg.result, Reg.scratchForStaticLink),
+                    currentFrameChunk.load(Reg.scratchForStaticLink, Reg.scratch, procedure.paramPtr),
 
                     // load this variable
-                    paramChunk.load(Reg.result, reg, variable),
+                    paramChunk.load(Reg.scratch, reg, variable),
                   )
                 }else{
                   block(
-                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
-                    currentFrameChunk.load(Reg.result, Reg.result, procedure.paramPtr),
-
-                    // load this variable
-                    paramChunk.store(Reg.result, variable, reg),
+//                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                    currentFrameChunk.load(Reg.scratchForStaticLink, Reg.scratch, procedure.paramPtr),
+                    paramChunk.store(Reg.scratch, variable, reg),
                   )
                 }
               }
                 // have to follow static links
               else{
                 block(
-                  actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
-                  currentFrameChunk.load(Reg.result, Reg.result, procedure.paramPtr),
-                  paramChunk.load(Reg.result, Reg.result, procedure.staticLink),
-                  actualFrame.store(Reg.framePointer, currentFrame, Reg.result),
+//                  actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
+                  currentFrameChunk.load(Reg.scratchForStaticLink, Reg.scratch, procedure.paramPtr),
+                  paramChunk.load(Reg.scratch, Reg.scratchForStaticLink, procedure.staticLink),
+//                  actualFrame.store(Reg.framePointer, currentFrame, Reg.result),
+//                  ADD(Reg.scratchForStaticLink, Reg.),
                   getValInProcedure(procedure.outer.getOrElse(sys.error("Could not find variable anywhere!! : " + variable))),
                 )
               }
             }
 
-            block(
-              actualFrame.store(Reg.framePointer, currentFrame, Reg.framePointer),
-              getValInProcedure(currentProcedure)
+             block(
+//              actualFrame.store(Reg.framePointer, currentFrame, Reg.framePointer),
+               ADD(Reg.scratchForStaticLink, Reg.framePointer),
+                getValInProcedure(currentProcedure)
             )
           }
         }
