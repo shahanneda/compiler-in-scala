@@ -615,16 +615,21 @@ object Transformations {
         val caller = currentProcedure
         val outer = callee.outer
 
-        if(outer == null){
+        println(callee.outer + " outer for " + callee.name)
+        if(outer.isEmpty){
+          println("Returning  null static link for " + callee.name)
           block(
-            Comment("No jumps needed!"),
+            Comment("Static link is ZERO should be outer function!" + callee.name),
             ADD(Reg.result, Reg.zero)
           )
-
         }else{
           var numberOfStaticLinkJumpsNeeded = caller.depth - callee.depth + 1;
+          var numberOfStaticLinkJumpsNeededBackup = caller.depth - callee.depth + 1;
           if(numberOfStaticLinkJumpsNeeded == 0){
-            ADD(Reg.result, Reg.framePointer)
+            block(
+              Comment("first case: static link for " +  callee.name + " from " + caller.name + " is " + caller.name),
+              ADD(Reg.result, Reg.framePointer)
+            )
           }else{
             var oneUnderEnclosing = currentProcedure;
 
@@ -648,14 +653,16 @@ object Transformations {
 ////                )
 //              );
               numberOfStaticLinkJumpsNeeded -= 1
-              if(numberOfStaticLinkJumpsNeeded != 1){
+//              if(numberOfStaticLinkJumpsNeeded != 1){
                 oneUnderEnclosing = oneUnderEnclosing.outer.orNull;
-              }
+//              }
             }
 
             //                    block(paramChunks(currentProcedure).load(Reg.framePointer, Reg.result, frameVar))
         //                    ADD(Reg.result, oneUnderEnclosing.si )
               block(
+                    Comment("jumps needed" + numberOfStaticLinkJumpsNeededBackup),
+                      Comment(" static link for " +  callee.name + " from " + caller.name + " is " + oneUnderEnclosing.outer.orNull.name),
                       read(Reg.result, oneUnderEnclosing.staticLink)
               )
 
@@ -768,7 +775,6 @@ object Transformations {
       val frame = Chunk(variables ++ Seq(
         currentProcedure.savedPC,
         currentProcedure.paramPtr,
-        currentProcedure.staticLink,
         currentProcedure.dynamicLink,
       ))
 
@@ -865,6 +871,7 @@ object Transformations {
               val currentFrameChunk = phaseOneResults(procedure)._2
 
               if(currentFrameChunk.variables.contains(variable)){
+                println("Variable " + variable + " is in " + procedure.name + " vars ")
                 if(read){
                   block(
 //                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
@@ -880,7 +887,8 @@ object Transformations {
                     currentFrameChunk.store(Reg.scratchForStaticLink,  variable, reg),
                   )
                 }
-              }else if(procedure.parameters.contains(variable)){
+              }else if(paramChunk.variables.contains(variable)){
+                println("Variable " + variable + " is in " + procedure.name + " params ")
                 if(read){
                   block(
 //                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
@@ -913,6 +921,7 @@ object Transformations {
 
              block(
 //              actualFrame.store(Reg.framePointer, currentFrame, Reg.framePointer),
+               Comment("Doing var access " + variable +" "+ currentProcedure.name),
                ADD(Reg.scratchForStaticLink, Reg.framePointer),
                 getValInProcedure(currentProcedure)
             )

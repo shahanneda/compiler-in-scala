@@ -23,9 +23,10 @@ class A6Tests extends FunSuite {
     val arg2 = new Variable("arg2-main")
 
     val main = new Procedure("main", Seq(arg1, arg2))
-//    val garg1 = new Variable("garg1")
+    val garg1 = new Variable("garg1")
     val f = new Procedure("f", Seq(), Option(main))
-    val g = new Procedure("g", Seq(), Option(f))
+    val g = new Procedure("g", Seq(garg1), Option(main))
+    println("main outer is " + main.outer)
 
     val fvar = new Variable("fvar");
 
@@ -33,17 +34,21 @@ class A6Tests extends FunSuite {
       block(
         Comment("f body"),
         LIS(Reg.result),
-        Word(encodeSigned(50)),
+        Word(encodeSigned(3)),
         write(fvar, Reg.result),
         read(Reg(13), arg1),
 
-        Call(g, Seq())
+        Call(g, Seq(block(
+          LIS(Reg.result),
+          Word(encodeSigned(4)),
+        )))
       )
     )
 
     g.code = block(
       read(Reg(14), arg2),
-      read(Reg(15), fvar)
+//      read(Reg(15), fvar),
+      read(Reg(16), garg1)
     )
 
     main.code = block(
@@ -52,7 +57,7 @@ class A6Tests extends FunSuite {
     // 8 from 16777168
 
     val code = compilerA6(Seq(main, f, g))
-    printState(A4.loadAndRun(code, Word(encodeUnsigned(555)), Word(encodeUnsigned(666)), debug = false))
+    printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = false))
 //    printState(A4.loadAndRun(code, debug = false))
   }
   test("loop procedure"){
@@ -66,8 +71,8 @@ class A6Tests extends FunSuite {
       Call(loop, Seq(ADD(Reg.result, Reg.scratch))) ,
     )
 
-    val code = compilerA5(Seq(main, loop))
-    printState(A4.loadAndRun(code, debug = true))
+    val code = compilerA6(Seq(main, loop))
+    printState(A4.loadAndRun(code, debug = false))
   }
 
   test("printProcedure"){
@@ -77,11 +82,11 @@ class A6Tests extends FunSuite {
 
     main.code = block(
       LIS(Reg.scratch),
-      Word(encodeSigned(-239839349)),
+      Word(encodeSigned(9349)),
       Call(printProcedure, Seq(ADD(Reg.result, Reg.scratch))) ,
     )
 
-    val code = compilerA5(Seq(main, printProcedure))
+    val code = compilerA6(Seq(main, printProcedure))
     printState(A4.loadAndRun(code, debug = false))
   }
 
@@ -113,7 +118,7 @@ class A6Tests extends FunSuite {
         call(printArray, read(Reg.result, arg1), read(Reg.result, arg2))
       )
 
-      val code = compilerA5(Seq(main, printArray, printProcedure))
+      val code = compilerA6(Seq(main, printArray, printProcedure))
       printState(A4.loadAndRunArray(code, array, debug = false))
     }
     testWithOutput(test, "3\n49\n0\n-234\n")
@@ -131,7 +136,7 @@ class A6Tests extends FunSuite {
         call(printArray, read(Reg.result, arg1), read(Reg.result, arg2))
       )
 
-      val code = compilerA5(Seq(main, printArray, printProcedure))
+      val code = compilerA6(Seq(main, printArray, printProcedure))
       printState(A4.loadAndRunArray(code, array, debug = false))
     }
     testWithOutput(test, "")
@@ -156,7 +161,7 @@ class A6Tests extends FunSuite {
         call(treeHeight(0), read(Reg.result, arg1), read(Reg.result, arg2))
       )
 
-      val code = compilerA5(Seq(main) ++ treeHeight)
+      val code = compilerA6(Seq(main) ++ treeHeight)
 //      printState(A4.loadAndRunArray(code, array, debug = false))
       val a = A4.loadAndRunArray(code, array, debug = false)
       assert(a.reg(3) == encodeUnsigned(2))
