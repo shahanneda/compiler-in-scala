@@ -78,12 +78,33 @@ object A7 {
     */
   lazy val decimalNumber = DFA(
     alphabet = "-0123456789".toSet,
-    states = Set("dash1", "dash2", "end"),
-    start = "dash1",
-    accepting = Set("end"),
+    states = Set("start", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "w"),
+    start = "start",
+    accepting = Set("a", "b", "c", "d", "g", "e", "f", "h", "i", "j", "k", "l", "m"),
     transition = {
-      case ("dash1", '0') => "end"
-      case ("dash1", '0') => "dash2"
+      case ("start", '1') => "a"
+      case ("a", '0'|'1'|'2') => "b"
+      case ("a", '3'|'4'|'5'|'6'|'7'|'8'|'9') => "d"
+      case ("b", '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7') => "c"
+
+      case ("start", '2'|'3'|'4'|'5'|'6'|'7'|'8'|'9') => "e"
+      case ("e", '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9') => "f"
+
+      case ("start", '0') => "g"
+
+      case ("start", '-') => "w"
+
+      case ("w", '2'|'3'|'4'|'5'|'6'|'7'|'8'|'9') => "e"
+
+      case ("w", '1') => "k"
+      case ("k", '3'|'4'|'5'|'6'|'7'|'8'|'9') => "h"
+      case ("k", '0'|'1'|'2') => "l"
+      case ("l", '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8') => "m"
+
+
+
+
+
     }
   )
 
@@ -93,10 +114,26 @@ object A7 {
     */
   lazy val abc = DFA(
     alphabet = "abc".toSet,
-    states = ???,
-    start = ???,
-    accepting = ???,
-    transition = ???
+    states = Set("start", "a", "b", "c"),
+    start = "start",
+    accepting = Set("c"),
+    transition = {
+      case ("start", 'a') => "a"
+      case ("start", 'b') => "start"
+      case ("start", 'c') => "start"
+
+      case ("a", 'a') => "a"
+      case ("a", 'c') => "a"
+      case ("a", 'b') => "b"
+
+      case ("b", 'a') => "b"
+      case ("b", 'b') => "b"
+      case ("b", 'c') => "c"
+
+      case ("c", 'a') => "c"
+      case ("c", 'b') => "c"
+      case ("c", 'c') => "c"
+    }
   )
 
   /** A DFA that recognizes any string from the alphabet {a,b,c} containing abc as a substring. */
