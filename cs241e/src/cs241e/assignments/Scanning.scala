@@ -19,7 +19,18 @@ import cs241e.scanparse.DFAs._
 /** Implementations of a DFA recognizer and a scanner. */
 object Scanning {
   /** Given a DFA and an input string, determines whether the input string is in the language specified by the DFA. */
-  def recognize(dfa: DFA, input: List[Char]): Boolean = ???
+  def recognize(dfa: DFA, input: List[Char]): Boolean = {
+    var currentState = dfa.start;
+    for(c <- input){
+      if(dfa.transition.isDefinedAt((currentState, c))){
+        currentState = dfa.transition(currentState, c)
+      }else{
+        return false
+      }
+    }
+
+    dfa.accepting.contains(currentState)
+  }
 
 
 
@@ -45,8 +56,19 @@ object Scanning {
       *         of the `dfa` after it has executed from `state` on the accepted prefix
       */
     
-    def scanOne(input: List[Char], state: State, backtrack: (List[Char], State) ): (List[Char], State) =
-    ???
+    def scanOne(input: List[Char], state: State, backtrack: (List[Char], State) ): (List[Char], State) = {
+      if(input.nonEmpty && dfa.transition.isDefinedAt((state, input.head))){
+        val newS = dfa.transition(state, input.head);
+        val newBacktrack = if (dfa.accepting.contains(newS)) (input.tail, newS) else backtrack
+        scanOne(input.tail, newS, newBacktrack)
+      }else{
+        if(dfa.accepting.contains(state)){
+          (input, state)
+        }else{
+          backtrack
+        }
+      }
+    }
 
     /** Given a `list` and `rest` such that `list.tail.tail....tail eq rest` for some sequence of zero or more
       * .tail operations, returns a list containing the elements that are in `list` but not in `rest` in the
@@ -74,7 +96,23 @@ object Scanning {
       * This method can also be implemented using a loop, and you are free to do so if you prefer.
       */
     
-    def recur(input: List[Char], accumulator: List[Token] = List.empty): List[Token] = ???
+    def recur(input: List[Char], accumulator: List[Token] = List.empty): List[Token] = {
+      if(input.isEmpty){
+        return accumulator
+      }
+
+      val (newC, newS) = scanOne(input, dfa.start, (input, dfa.start))
+      val scannedString = listDiff(input, newC);
+      //println(newC, input, newC, scannedString)
+
+
+      if(scannedString.isEmpty){
+        sys.error("Could not scan: " + input + " accum: " + accumulator)
+      }
+      //println("scanned " + scannedString.mkString)
+
+      recur(newC, Token(newS, scannedString.mkString)::accumulator)
+    }
 
     recur(input.toList).reverse
   }
