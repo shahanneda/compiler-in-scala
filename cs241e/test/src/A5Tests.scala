@@ -35,18 +35,18 @@ class A5Tests extends FunSuite {
   }
 
   test("printProcedure"){
-    val arg1 = new Variable("arg1-main")
-    val arg2 = new Variable("arg2-main")
-    val main = new Procedure("main", Seq(arg1, arg2))
+    val a1 = new Variable("a1")
+    val a2 = new Variable("a2")
+    val main = new Procedure("main", Seq(a1, a2))
 
     main.code = block(
       LIS(Reg.scratch),
-      Word(encodeSigned(-239839349)),
+      Word(encodeSigned(-2393349)),
       Call(printProcedure, Seq(ADD(Reg.result, Reg.scratch))) ,
     )
 
     val code = compilerA5(Seq(main, printProcedure))
-    printState(A4.loadAndRun(code, debug = false))
+    A4.loadAndRun(code, debug = false)
   }
 
   test("twofunctiontest"){

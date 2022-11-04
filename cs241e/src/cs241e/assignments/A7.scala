@@ -33,20 +33,44 @@ object A7 {
     */
   lazy val notDiv3 = DFA(
     alphabet = "01".toSet,
-    states = ???,
-    start = ???,
-    accepting = ???,
-    transition = ???)
+    states = Set("0mod3", "1mod3", "2mod3", "startgap", "0"),
+    start = "startgap",
+    accepting = Set("1mod3", "2mod3"),
+    transition = {
+      case ("startgap", '0') => "0"
+      case ("startgap", '1') => "1mod3"
+      case ("0mod3", '1') => "1mod3"
+      case ("0mod3", '0') => "0mod3"
+      case ("1mod3", '1') => "0mod3"
+      case ("1mod3", '0') => "2mod3"
+      case ("2mod3", '1') => "2mod3"
+      case ("2mod3", '0') => "1mod3"
+    }
+  )
 
   /** A DFA with alphabet {0,1} that recognizes binary integers that have no useless (leading) zeroes
     * and are not divisible by 2 or by 3.
     */
   lazy val notDiv23 = DFA(
     alphabet = "01".toSet,
-    states = ???,
-    start = ???,
-    accepting = ???,
-    transition = ???)
+    states = Set("0mod3", "1mod3ends1", "1mod3ends0", "2mod3ends0", "startgap", "0", "2mod3ends1"),
+    start = "startgap",
+    accepting = Set("2mod3ends1", "1mod3ends1"),
+    transition = {
+      case ("startgap", '0') => "0"
+      case ("startgap", '1') => "1mod3ends1"
+      case ("0mod3", '1') => "1mod3ends1"
+      case ("0mod3", '0') => "0mod3"
+      case ("1mod3ends1", '1') => "0mod3"
+      case ("1mod3ends0", '1') => "0mod3"
+      case ("1mod3ends1", '0') => "2mod3ends0"
+      case ("1mod3ends0", '0') => "2mod3ends0"
+      case ("2mod3ends0", '1') => "2mod3ends1"
+      case ("2mod3ends0", '0') => "1mod3ends0"
+      case ("2mod3ends1", '0') => "1mod3ends0"
+      case ("2mod3ends1", '1') => "2mod3ends1"
+    }
+  )
 
   /** A DFA that recognizes a decimal number between -128 and 127 inclusive, with no useless zeroes.
     * (Zeroes are required and only permitted if removing them changes the meaning of the number.)
@@ -54,10 +78,13 @@ object A7 {
     */
   lazy val decimalNumber = DFA(
     alphabet = "-0123456789".toSet,
-    states = ???,
-    start = ???,
-    accepting = ???,
-    transition = ???
+    states = Set("dash1", "dash2", "end"),
+    start = "dash1",
+    accepting = Set("end"),
+    transition = {
+      case ("dash1", '0') => "end"
+      case ("dash1", '0') => "dash2"
+    }
   )
 
   /** A DFA with alphabet {a, b, c} that recognizes any string that contains all three letters in

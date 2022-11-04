@@ -85,8 +85,7 @@ object A1 {
    */
 
   /** Write a MIPS machine language program that determines the maximum of the values in registers 1 and 2
-    * interpreted as two's-complement integers, places it in register 3, and ends execution.
-    */
+    * interpreted as two's-complement integers, places it in register 3, and ends execution. */
   lazy val maximum = Seq[Word](
     SLT(Reg(3), Reg(1), Reg(2)),
     // if 1 , then reg 2 is max, else reg 1 is maximum
