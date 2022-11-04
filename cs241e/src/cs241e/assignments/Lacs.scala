@@ -95,7 +95,7 @@ object Lacs {
   val dfa = {
     DFA(
       alphabet = "<>=+-*/%(){},;:! \t\n\r".toSet ++ ('A' to 'Z') ++ ('a' to 'z') ++ ('0' to '9'),
-      states = Set("start", "idOrSpecial", "num", "zeroNum", "symbol", "slash", "COMMENT", "waitforeq", "eq"),
+      states = Set("start", "idOrSpecial", "num", "zeroNum", "symbol", "slash", "COMMENT", "waitforeq", "eq", "not"),
       start = "start",
       accepting = Set("idOrSpecial", "num", "zeroNum", "symbol", "slash", "COMMENT", "waitforeq", "eq"),
       transition = {
@@ -110,8 +110,10 @@ object Lacs {
 
         case ("start", '>') => "waitforeq"
         case ("start", '<') => "waitforeq"
-        case ("start", '!') => "waitforeq"
         case ("waitforeq", '=') => "symbol"
+
+        case ("start", '!') => "not"
+        case ("not", '=') => "symbol"
 
         case ("start", '=') => "eq"
         case ("eq", '>') => "symbol"
@@ -137,6 +139,7 @@ object Lacs {
     * {ID, DEF, VAR, INT, IF, ELSE, NUM}
     * {EQ, NE, LT, LE, GT, GE, BECOMES, ARROW}
    */
+  val invalidGroup1 = Set("ID", "DEF", "VAR", "INT", "IF", "ELSE", "NUM", "EQ", "NE", "LT", "LE", "GT", "GE", "BECOMES", "ARROW")
   def scan(input: String): Seq[Token] = {
     val tokens = maximalMunchScan(dfa, input).toArray
     var out: Seq[Token] = Seq();
@@ -151,7 +154,7 @@ object Lacs {
           out = Seq(Token("ID", tok.lexeme)) ++ out
         }
       }else if (tok.kind == "num" || tok.kind == "zeroNum"){
-        out = Seq(Token("NUM", keywordMap(tok.lexeme))) ++ out
+        out = Seq(Token("NUM", tok.lexeme)) ++ out
       }else if (tok.kind == "symbol" || tok.kind == "slash" || tok.kind == "waitforeq" || tok.kind == "eq"){
         if(symbols.contains(tok.lexeme)){
           out = Seq(Token(symbols(tok.lexeme))) ++ out
@@ -163,7 +166,28 @@ object Lacs {
       }
       i -= 1;
     }
-    out
+    out = Seq(Token("BOF")) ++ out ++ Seq(Token("EOF"))
+    val tmpOut = out.toArray
+
+    i = 1
+    while(i < out.length){
+      val prev = tmpOut(i - 1)
+      val cur = tmpOut(i)
+      if (invalidGroup1.contains(prev.kind) && invalidGroup1.contains(cur.kind)){
+        sys.error(prev + " - " + cur + "Cannot have two consecutive tokens in: " + invalidGroup1 )
+      }
+//      if (invalidGroup2.contains(prev.kind) && invalidGroup2.contains(cur.kind)){
+//        sys.error(prev + " - " + cur + "Cannot have two consecutive tokens in: " + invalidGroup2 )
+//      }
+      i += 1
+    }
+    out.flatMap(token =>
+      if(token.kind == "WHITESPACE" || token.kind == "COMMENT"){
+        Seq()
+      }else{
+        Seq(token)
+      }
+    )
   }
 
   /** The grammar for the Lacs programming language copied from the language specification. */

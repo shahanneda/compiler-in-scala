@@ -34,7 +34,34 @@ class A7Tests extends FunSuite {
   }
   test("lacsScanDfa") {
     val dfa = Lacs.dfa
-    val out = Lacs.scan( ">= <= != == => = > < () {}")
+//    val out = Lacs.scan( ">= <= != == => = > < () {}")
+    val out = Lacs.scan( "hello09 INt" +
+      " helloIf hello283  " +
+      "=> if def " +
+      "var " +
+      "Int " +
+      "if " +
+      "else int" +
+      "  " +
+      "0 " +
+      "( " +
+      ") " +
+      "{ " +
+      "} " +
+      "= " +
+      "== " +
+      "!= " +
+      "< " +
+      "> " +
+      "<= " +
+      ">= " +
+      " + " +
+      "- " +
+      "* " +
+      "/ " +
+      "% " +
+      ", " +
+      "; : => //hello,.,.\n   ")
     println(out)
   }
 
