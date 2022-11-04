@@ -12,4 +12,7 @@ import cs241e.mips.Word
 // decodeUnsigned method, which is the first thing to do for Assignment 1.
 //Assembler.decodeUnsigned(Seq(false))
 //Word(Assembler.encodeSigned(-543))
-loadAndRun(maximum, Word(Assembler.encodeUnsigned(1)), Word(Assembler.encodeUnsigned(5)))
+println(('h', 'A'|'B'|'C'))
+println(('h', 'A' to 'C'))
+
+println((('A' to 'Z') ++ ('a' to 'z')).contains('/'))

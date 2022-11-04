@@ -1,6 +1,6 @@
 import cs241e.assignments.A1.{followingAddress, loadAndRun, maximum}
 import cs241e.assignments.A7.{abcSubstring, decimalNumber}
-import cs241e.assignments.{Assembler, Reg, Scanning}
+import cs241e.assignments.{Assembler, Lacs, Reg, Scanning}
 import cs241e.mips.{State, Word}
 import cs241e.scanparse.DFAs.DFA
 import org.scalatest.FunSuite
@@ -32,10 +32,16 @@ class A7Tests extends FunSuite {
     val out = Scanning.maximalMunchScan(dfa, "abcabcabcabcab")
     println(out)
   }
+  test("lacsScanDfa") {
+    val dfa = Lacs.dfa
+    val out = Lacs.scan( ">= <= != == => = > < () {}")
+    println(out)
+  }
 
 
 
-   def printState(s: State): Unit = {
+
+  def printState(s: State): Unit = {
     for(i <- 1 to 31){
       println(i + ": " + Assembler.decodeUnsigned(s.reg(i)))
     }

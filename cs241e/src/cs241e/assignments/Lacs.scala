@@ -25,12 +25,21 @@ import Grammars._
 import DFAs._
 import cs241e.assignments.ProgramRepresentation.Procedure
 
+import scala.::
+
 /** Implementations of the definitions from the Lacs language specification. */
 
 object Lacs {
 
   /** The set of keywords defined in the Lacs language specification. */
   val keywords = Set("def", "var", "Int", "if", "else")
+  val keywordMap = Map(
+    "def" -> "DEF",
+    "var" -> "VAR",
+    "Int" -> "INT",
+    "if" -> "IF",
+    "else" -> "ELSE",
+  )
 
   /** The set of single-character tokens in the Lacs language specification mapped to textual names.
     *
@@ -56,7 +65,13 @@ object Lacs {
     '}' -> "RBRACE",
     ',' -> "COMMA",
     ';' -> "SEMI",
-    ':' -> "COLON"
+    ':' -> "COLON",
+
+    ">=" -> "GE",
+    "<=" -> "LE",
+    "==" -> "EQ",
+    "!=" -> "NE",
+    "=>" -> "ARROW",
   )
 
     /** A DFA that recognizes any valid Lacs token from the list given in the Lacs specification,
@@ -76,17 +91,38 @@ object Lacs {
       * each kind of token.
       */
 
+
   val dfa = {
-    
     DFA(
       alphabet = "<>=+-*/%(){},;:! \t\n\r".toSet ++ ('A' to 'Z') ++ ('a' to 'z') ++ ('0' to '9'),
-      states = ???,
-      start = ???,
-      accepting = ???,
-      transition = ???
+      states = Set("start", "idOrSpecial", "num", "zeroNum", "symbol", "slash", "COMMENT", "waitforeq", "eq"),
+      start = "start",
+      accepting = Set("idOrSpecial", "num", "zeroNum", "symbol", "slash", "COMMENT", "waitforeq", "eq"),
+      transition = {
+        case ("start", let) if (('A' to 'Z') ++ ('a' to 'z')).contains(let) => "idOrSpecial"
+        case ("idOrSpecial", let) if (('A' to 'Z') ++ ('a' to 'z') ++ ('0' to '9')).contains(let) => "idOrSpecial"
+        case("start", '0') => "zeroNum"
+        case("start", num) if ('1' to '9').contains(num) => "num"
+        case("num", num) if ('0' to '9').contains(num) => "num"
+        case("start", '/') => "slash"
+        case("slash", '/') => "COMMENT"
+        case ("COMMENT", let) if let != '\n' => "COMMENT"
+
+        case ("start", '>') => "waitforeq"
+        case ("start", '<') => "waitforeq"
+        case ("start", '!') => "waitforeq"
+        case ("waitforeq", '=') => "symbol"
+
+        case ("start", '=') => "eq"
+        case ("eq", '>') => "symbol"
+        case ("eq", '=') => "symbol"
+
+        case("start", let) if symbols.contains(let) => "symbol"
+      }
     )
   }
 
+  // treat slash as a symbol
   /** A scanner for the Lacs programming language. Given an input string, scans it into a sequence of tokens.
     * The kinds of the tokens must correspond to the kinds defined in the Lacs specification
     * (e.g. ID, NUM, LPAREN, ...). WHITESPACE and COMMENT tokens are removed from the sequence. The resulting
@@ -101,7 +137,34 @@ object Lacs {
     * {ID, DEF, VAR, INT, IF, ELSE, NUM}
     * {EQ, NE, LT, LE, GT, GE, BECOMES, ARROW}
    */
-  def scan(input: String): Seq[Token] = { ??? }
+  def scan(input: String): Seq[Token] = {
+    val tokens = maximalMunchScan(dfa, input).toArray
+    var out: Seq[Token] = Seq();
+
+    var i = tokens.length - 1
+    while(i >= 0){
+      val tok = tokens(i)
+      if (tok.kind == "idOrSpecial"){
+        if(keywords.contains(tok.lexeme)){
+          out = Seq(Token(keywordMap(tok.lexeme))) ++ out
+        }else{
+          out = Seq(Token("ID", tok.lexeme)) ++ out
+        }
+      }else if (tok.kind == "num" || tok.kind == "zeroNum"){
+        out = Seq(Token("NUM", keywordMap(tok.lexeme))) ++ out
+      }else if (tok.kind == "symbol" || tok.kind == "slash" || tok.kind == "waitforeq" || tok.kind == "eq"){
+        if(symbols.contains(tok.lexeme)){
+          out = Seq(Token(symbols(tok.lexeme))) ++ out
+        }else {
+          out = Seq(Token(symbols(tok.lexeme(0)))) ++ out
+        }
+      }else if(tok.kind == "COMMENT"){
+        out = Seq(tok) ++ out
+      }
+      i -= 1;
+    }
+    out
+  }
 
   /** The grammar for the Lacs programming language copied from the language specification. */
   val grammar = parseGrammar("""
