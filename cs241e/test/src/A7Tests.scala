@@ -34,9 +34,10 @@ class A7Tests extends FunSuite {
   }
   test("lacsScanDfa") {
     val dfa = Lacs.dfa
-//    val out = Lacs.scan( ">= <= != == => = > < () {}")
+//    val out = Lacs.scan( ">= <= != == => = > < () {} >+if ")
+    //val out = Lacs.scan( " Int x = 45 / 0; <=//comment\n>=")
     val out = Lacs.scan( "hello09 INt" +
-      " helloIf hello283  " +
+      " helloIf hello283  elseif def= " +
       "=> if def " +
       "var " +
       "Int " +
@@ -44,7 +45,7 @@ class A7Tests extends FunSuite {
       "else int" +
       "  " +
       "0 " +
-      "( " +
+      "(    " +
       ") " +
       "{ " +
       "} " +

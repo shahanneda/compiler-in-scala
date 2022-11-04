@@ -124,7 +124,6 @@ object Lacs {
     )
   }
 
-  // treat slash as a symbol
   /** A scanner for the Lacs programming language. Given an input string, scans it into a sequence of tokens.
     * The kinds of the tokens must correspond to the kinds defined in the Lacs specification
     * (e.g. ID, NUM, LPAREN, ...). WHITESPACE and COMMENT tokens are removed from the sequence. The resulting
@@ -139,7 +138,8 @@ object Lacs {
     * {ID, DEF, VAR, INT, IF, ELSE, NUM}
     * {EQ, NE, LT, LE, GT, GE, BECOMES, ARROW}
    */
-  val invalidGroup1 = Set("ID", "DEF", "VAR", "INT", "IF", "ELSE", "NUM", "EQ", "NE", "LT", "LE", "GT", "GE", "BECOMES", "ARROW")
+  val invalidGroup1 = Set("ID", "DEF", "VAR", "INT", "IF", "ELSE", "NUM")
+  val invalidGroup2 = Set("EQ", "NE", "LT", "LE", "GT", "GE", "BECOMES", "ARROW")
   def scan(input: String): Seq[Token] = {
     val tokens = maximalMunchScan(dfa, input).toArray
     var out: Seq[Token] = Seq();
@@ -149,7 +149,7 @@ object Lacs {
       val tok = tokens(i)
       if (tok.kind == "idOrSpecial"){
         if(keywords.contains(tok.lexeme)){
-          out = Seq(Token(keywordMap(tok.lexeme))) ++ out
+          out = Seq(Token(keywordMap(tok.lexeme), tok.lexeme)) ++ out
         }else{
           out = Seq(Token("ID", tok.lexeme)) ++ out
         }
@@ -157,9 +157,9 @@ object Lacs {
         out = Seq(Token("NUM", tok.lexeme)) ++ out
       }else if (tok.kind == "symbol" || tok.kind == "slash" || tok.kind == "waitforeq" || tok.kind == "eq"){
         if(symbols.contains(tok.lexeme)){
-          out = Seq(Token(symbols(tok.lexeme))) ++ out
+          out = Seq(Token(symbols(tok.lexeme), tok.lexeme)) ++ out
         }else {
-          out = Seq(Token(symbols(tok.lexeme(0)))) ++ out
+          out = Seq(Token(symbols(tok.lexeme(0)), tok.lexeme)) ++ out
         }
       }else if(tok.kind == "COMMENT"){
         out = Seq(tok) ++ out
@@ -176,9 +176,9 @@ object Lacs {
       if (invalidGroup1.contains(prev.kind) && invalidGroup1.contains(cur.kind)){
         sys.error(prev + " - " + cur + "Cannot have two consecutive tokens in: " + invalidGroup1 )
       }
-//      if (invalidGroup2.contains(prev.kind) && invalidGroup2.contains(cur.kind)){
-//        sys.error(prev + " - " + cur + "Cannot have two consecutive tokens in: " + invalidGroup2 )
-//      }
+      if (invalidGroup2.contains(prev.kind) && invalidGroup2.contains(cur.kind)){
+        sys.error(prev + " - " + cur + "Cannot have two consecutive tokens in: " + invalidGroup2 )
+      }
       i += 1
     }
     out.flatMap(token =>
