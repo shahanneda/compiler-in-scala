@@ -45,19 +45,19 @@ object Parsing {
       * If `lhs` does not derive this substring of the input, returns `None`.
       */
     def recur(lhs: List[String], from: Int, length: Int): Option[Seq[Tree]] = {
-      println("doing ", lhs, from, length, input.toSeq.splitAt(from)._2.take(length))
+//      println("doing ", lhs, from, length, input.toSeq.splitAt(from)._2.take(length))
       if(length < 0){
         return None
       }
       if(memo.contains(lhs, from, length)){
         val l = memo.get(lhs, from, length).getOrElse(sys.error(("Invalid memo")))
-        l
+        return l
       }
       memo.addOne((lhs, from, length), None)
 
       if(lhs.isEmpty){
         if(length == 0) {
-          println("found empty")
+//          println("found empty")
           memo((lhs, from, length)) = Option(Seq())
           return Option(Seq())
         }
@@ -66,8 +66,8 @@ object Parsing {
       else if(lhs.length == 1){
         val a = lhs.head;
         if(grammar.terminals.contains(a)){
-          println("found terminal ")
-          if(length != 1){
+//          println("found terminal ")
+          if(length != 1 || input(from).kind != a){
             return None;
           }
 
@@ -80,14 +80,14 @@ object Parsing {
             val restOut = recur(prod.rhs.toList, from, length);
             if(restOut.isDefined){
               var out: Option[Seq[Tree]] = None;
-              if(restOut.getOrElse(sys.error("")).isEmpty){
-                out = Option(restOut.getOrElse(sys.error("")));
-              }
-              else{
+              //if(restOut.getOrElse(sys.error("")).isEmpty){
+               // out = Option(restOut.getOrElse(sys.error("")));
+              //}
+              //else{
                 out = Option(Seq(new Tree(Token(a), restOut.getOrElse(sys.error("")))))
-              }
-              println("restOut is", restOut.getOrElse(sys.error("")).isEmpty)
-              println("returning from trying all productison case ", out)
+              //}
+//              println("restOut is", restOut.getOrElse(sys.error("")).isEmpty)
+//              println("returning from trying all productison case ", out)
               memo((lhs, from, length)) = out
               return out
             }
@@ -98,33 +98,32 @@ object Parsing {
           return None
         }
       }else{
-        println("have multiple left over")
+//        println("have multiple left over")
         if(grammar.terminals.contains(lhs.head)){
-          println("first is terminal")
+//          println("first is terminal")
           val token = input(from)
           if( token.kind == lhs.head){
-          val parseRest = recur(lhs.tail, from + 1, length - 1)
+            val parseRest = recur(lhs.tail, from + 1, length - 1)
             if(parseRest.isDefined){
               val out = Option(Seq(new Tree(input(from))) ++ parseRest.getOrElse(sys.error("")))
-              println("retuining from first is terminal case", out);
+//              println("retuining from first is terminal case", out);
               memo((lhs, from, length)) = out;
               return out
             }
-            None
           }
           return None
         }else if(grammar.productionsExpanding.contains(lhs.head)){
-          println(" in split case ")
+//          println(" in split case ")
           for(firstLength <- 0 until length ){
             val secondLength = length - firstLength
             val secondFrom = from + firstLength
             val parseA = recur(List(lhs.head), from, firstLength)
 
             if(parseA.isDefined){
-              println("found first parse", parseA.getOrElse(sys.error("")))
+//              println("found first parse", parseA.getOrElse(sys.error("")))
               val parseB = recur(lhs.tail, secondFrom, secondLength)
               if(parseB.isDefined){
-                println("found second parse", parseB.getOrElse(sys.error("")))
+//                println("found second parse", parseB.getOrElse(sys.error("")))
                 val out = Option(parseA.get ++ parseB.get)
                 memo((lhs, from, length)) = out
                 return out
@@ -133,7 +132,7 @@ object Parsing {
           }
           return None
         }else{
-          println("exiting")
+//          println("exiting")
           None;
         }
       }

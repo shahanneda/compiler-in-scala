@@ -243,6 +243,7 @@ args expr
   /** Scans and parses a Lacs program, returning the parse tree. */
   def scanAndParse(input: String): Tree = {
     val tokens = scan(input).toIndexedSeq
+    println(ParsingPrivate.longestPrefix(grammar, tokens))
     val tree = parseCYK(grammar, tokens).getOrElse{
       val longestPrefixKinds = ParsingPrivate.longestPrefix(grammar, tokens)
       val longestPrefixLexemes = tokens.map(_.lexeme).take(longestPrefixKinds.length).mkString(" ")
