@@ -78,7 +78,7 @@ B
     """)
 
     //val input = IndexedSeq(Token("BOF"), Token("x"), Token("x"), Token("EOF"));
-    val input = IndexedSeq("BOF", "x", "EOF");
+    val input = IndexedSeq("BOF", "x", "x", "x", "EOF");
 
 
     val out = parseEarley(grammar, input)
@@ -93,10 +93,10 @@ B
   }
   test("parse3"){
     val grammar = Lacs.grammar
-    val input = "defdef DEF ID LPAREN parmsopt RPAREN COLON type BECOMES LBRACE vardefsopt defedfsopt expras RBRACE".split(" ").toSeq.map(x => Token(x))
+    val input = "defdef DEF ID LPAREN parmsopt RPAREN COLON type BECOMES LBRACE vardefsopt defedfsopt expras RBRACE".split(" ").toSeq
 
     println(input)
-    val out = parseCYK(grammar, input.toIndexedSeq)
+    val out = parseEarley(grammar, input.toIndexedSeq)
     println("longest is: ", ParsingPrivate.longestPrefix(grammar, input));
     println(out)
   }
