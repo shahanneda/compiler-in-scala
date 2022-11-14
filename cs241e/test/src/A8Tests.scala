@@ -1,4 +1,4 @@
-import cs241e.assignments.Parsing.parseCYK
+import cs241e.assignments.Parsing.{parseCYK, parseEarley}
 import cs241e.assignments.{A8, Assembler, Lacs, Reg, Scanning}
 import cs241e.mips.State
 import cs241e.nosource.ParsingPrivate
@@ -77,11 +77,12 @@ A A B A
 B
     """)
 
-    val input = IndexedSeq(Token("BOF"), Token("x"), Token("x"), Token("EOF"));
+    //val input = IndexedSeq(Token("BOF"), Token("x"), Token("x"), Token("EOF"));
+    val input = IndexedSeq("BOF", "x", "EOF");
 
 
-    val out = parseCYK(grammar, input)
-    println("longest is: ", ParsingPrivate.longestPrefix(grammar, input));
+    val out = parseEarley(grammar, input)
+    //println("longest is: ", ParsingPrivate.longestPrefix(grammar, input));
     println(out)
   }
   test("parse2"){

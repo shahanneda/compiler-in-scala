@@ -17,6 +17,7 @@ import cs241e.scanparse._
 import Grammars._
 import DFAs._
 
+import scala.+:
 import scala.collection.mutable
 
 /** Parsers for general grammars. */
@@ -148,5 +149,90 @@ object Parsing {
     *
     * Note: Optional, for bonus only.
     */
-  def parseEarley(grammar: Grammar, input: IndexedSeq[String]): Boolean = { ??? }
+  def parseEarley(grammar: Grammar, input: IndexedSeq[String]): Boolean = {
+    def build(): Unit = {
+      val prods = grammar.productions.toIndexedSeq
+      case class Rule(var rule : Production, var next: Int, var start: Int)
+      case class State(var rules: mutable.IndexedSeq[Rule])
+
+      var s : mutable.IndexedSeq[State] = mutable.IndexedSeq(new State(mutable.IndexedSeq()))
+      for(p <- grammar.productions){
+        if(p.lhs == grammar.start){
+          s(0).rules :+= new Rule(p, 0, 0);
+        }
+      }
+
+      var i = 0
+      while(i < s.length){
+        var j = 0
+        while (j < s(i).rules.length){
+          val rule = s(i).rules(j)
+          val rhsOfRule = rule.rule.rhs
+          if(rule.next < rule.rule.rhs.length ) {
+            val sym = rhsOfRule(s(i).rules(j).next)
+            println("sym is ", sym)
+            if(grammar.terminals.contains(sym)){
+              println("is terminal symbol", sym)
+              // terminal, should scan
+              if(s.length < i + 2){
+                println("inside, lenght is ", s.length, " and i is ", i , " so adding")
+                //s.update(i+1,  new State(mutable.IndexedSeq()));
+                s = s.:+(new State(mutable.IndexedSeq()))
+              }
+
+              println("appending terminal to next tule")
+              s(i+1).rules = s(i+1).rules :+ new Rule(rule.rule, rule.next + 1, rule.start)
+              println(s(i+1).rules)
+              println("current is ", i, s(i).rules)
+            }else if (grammar.nonTerminals.contains(sym)){
+              println("non terminal, predicting ", sym)
+              // should predict
+              val rest = grammar.productionsExpanding(sym);
+              println("rest is, ", rest)
+              for(p <- rest){
+                val newRule = new Rule(p, 1, i);
+                if(!s(i).rules.contains(newRule)){
+                  s(i).rules = s(i).rules.:+(newRule)
+                }
+              }
+            }else{
+              sys.error("invalid grammer symbol" + sym);
+            }
+          }else{
+            // shouuld complete
+            println("found complete ", rule, " i ", i)
+            for(oldRule <- s(rule.start).rules) {
+              println("old rules total  ", s(rule.start).rules)
+              println("old ", oldRule)
+              if (oldRule.next < oldRule.rule.rhs.length) {
+
+                val sym = oldRule.rule.rhs(oldRule.next)
+                val name = rule.rule.lhs
+                println(sym)
+                println(name)
+                if (sym == name) {
+                  val newRule = new Rule(oldRule.rule, oldRule.next + 1, oldRule.start)
+                  println("rules are ", s(i).rules, newRule)
+                  if (!s(i).rules.contains(newRule)) {
+                    println("before adding", s(i).rules)
+                    s(i).rules = s(i).rules.:+(newRule);
+                    println("after adding", s(i).rules)
+                  }
+                }
+              }
+            }
+          }
+
+          j += 1
+        }
+
+        i += 1;
+      }
+      println(s)
+    }
+    build()
+
+
+    return false;
+  }
 }
