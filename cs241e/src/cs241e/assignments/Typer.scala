@@ -44,9 +44,11 @@ object Typer {
     val types = collect(tree, "type")
     require(types.size == 1)
     val root = types.head;
-    if(root.children.length == 1){ // M
+    if(root.children.length == 1){ // Must be int type
       return IntType;
     }
+
+    // Must be functoin type
     //Production rule is: type LPAREN typesopt RPAREN ARROW type
     val returnType = parseType(root.children(4))
 
@@ -105,33 +107,54 @@ object Typer {
     val Seq(_, id, _, parmsopt, _, _, retTypeTree, _, _, vardefs, defdefs, expras, _) = tree.children
 
     /** The name of the procedure. */
-    val name: String = ???
+    val name: String = id.lhs.lexeme
 
     /** The parameters of the procedure. */
-    val parms: Seq[TypedVariable] = ???
+    val parms: Seq[TypedVariable] = collect(parmsopt, "parms").flatMap((parm) => {
+      def unwrapTypes(parm: Tree): Seq[TypedVariable] = {
+        if(parm.children.isEmpty){
+          return Seq()
+        } else if (parm.children.length == 1){
+          //parms vardef
+          val Seq(id, _, typ) = parm.children.head.children
+
+          return Seq(TypedVariable(makeVariable(id.lhs.lexeme, parseType(typ)), parseType(typ)))
+        }else if (parm.children.length == 3){
+          //parms vardef COMMA parms
+
+          val Seq(vardef, _, parms) = parm.children
+          val Seq(id, _, typ) = vardef.children
+
+          return Seq(TypedVariable(makeVariable(id.lhs.lexeme, parseType(typ)), parseType(typ))) ++ unwrapTypes(parms)
+        }
+        sys.error("Unexpected parms!" + parms);
+        Seq()
+      }
+      unwrapTypes(parm)
+    })
 
     /** The variables declared in the procedure. */
-    val variables: Seq[TypedVariable] = ???
+    val variables: Seq[TypedVariable] = parseVarDefs(vardefs)
 
     /** The declared return type of the procedure. */
-    val returnType: Type = ???
+    val returnType: Type = parseType(retTypeTree)
 
     /** The type of the procedure. */
-    val tpe: FunctionType = ???
+    val tpe: FunctionType = new FunctionType(parms.map(x => x.tpe), returnType)
 
     /** The new `Procedure` object that will represent this procedure. */
-    val procedure: Procedure = ???
+    val procedure: Procedure = new Procedure(name, variables.map(x => x.variable))
 
     /** The `ProcedureScope`s of the nested procedures that are immediately nested within this procedure.
       *
       * Note: this `val` will recursively call `new ProcedureScope(...)`.
       */
-    val subProcedures: Seq[ProcedureScope] = ???
+    val subProcedures: Seq[ProcedureScope] = defdefs.children.map(x => new ProcedureScope(x, Option(this)))
 
     /** The names of parameters, variables, and nested procedures that are newly defined within this procedure
       * (as opposed to being inherited from some outer procedure).
       */
-    val newNames: Seq[String] = ???
+    val newNames: Seq[String] = parms.map(x => x.variable.name) ++ variables.map(x => x.variable.name) ++ subProcedures.map(x => x.name)
     checkDuplicates(newNames)
 
     /** Create and return a symbol table to be used when type-checking the body of this procedure. It
@@ -142,7 +165,8 @@ object Typer {
       * current procedure is nested, or, if the current procedure is a top-level procedure, a symbol
       * table containing the names of all of the top-level procedures).
       */
-    def symbolTable(outerSymbolTable: SymbolTable): SymbolTable = ???
+      // TODO: change ordering of tis if needed
+    def symbolTable(outerSymbolTable: SymbolTable): SymbolTable = outerSymbolTable ++ parms.map(x => (x.variable.name, Left(x))) ++ variables.map(x => (x.variable.name, Left(x))) ++ subProcedures.map(x => (x.name, Right(x)))
 
     /** Returns a sequence containing `this` `ProcedureScope` and the `ProcedureScope`s for all procedures
       * declared inside of this procedure, including those nested recursively within other nested procedures.
@@ -151,7 +175,7 @@ object Typer {
       * one place you can read about it is here:
       * http://www.artima.com/pins1ed/working-with-lists.html#sec:higher-order-methods
       */
-    def descendantScopes: Seq[ProcedureScope] = ???
+    def descendantScopes: Seq[ProcedureScope] = Seq(this) ++ subProcedures.flatMap(x => x.descendantScopes)
 
     override def toString = s"ProcedureScope for $name"
   }
@@ -182,21 +206,95 @@ object Typer {
 
     /** Calls `sys.error()` if `tpe1` and `tpe2` are not equal. If they are equal, returns them. */
     def mustEqual(tpe1: Type, tpe2: Type): Type =
-      if(tpe1 == tpe2) tpe1 else sys.error(s"Type mismatch: expected $tpe2, got $tpe1")
+      if (tpe1 == tpe2) tpe1 else sys.error(s"Type mismatch: expected $tpe2, got $tpe1")
 
     /** For a `tree` rooted at a node that has a `Type`, computes the `Type`, adds it to `treeToType`,
-      * and returns it.
-      */
+     * and returns it.
+     */
     def typeOf(tree: Tree): Type = {
-      def fun: Type = {
-        ???
+      println(tree)
+
+      def unWrap(expras: Tree): Seq[Tree] = {
+        //rule: expras expra SEMI expras
+        if (expras.children.length == 1) {
+          return Seq(expras.children.head);
+        }
+        return Seq(expras.children.head) ++ unWrap(expras.children(2))
       }
+
+      def fun: Type = {
+        if (tree.production == "expras expra SEMI expras" || tree.production == "expras expra") {
+          return unWrap(tree).map(x => typeOf(x)).last;
+        }else if (tree.production == "expra expr") {
+          assert(tree.children.head.lhs.kind == "expr");
+          return typeOf(tree.children.head)
+        } else if (tree.production == "expra ID BECOMES expr") {
+          val Seq(id, _, expr) = tree.children;
+          val idType = symbolTable(id.lhs.lexeme) match {
+            case Left(value) => value.tpe
+            case Right(value) => value.tpe
+          };
+
+          val insideType = typeOf(expr);
+          println("")
+          mustEqual(insideType, idType);
+          return insideType;
+        } else if (tree.production == "expr term") {
+          val term = tree.children.head;
+          return typeOf(term);
+        }
+        else if (tree.production == "term factor") {
+          val Seq(factor) = tree.children;
+          return typeOf(factor)
+        } else if (tree.production == "factor NUM") {
+          return IntType;
+        } else if (tree.production == "factor ID") {
+          val id = tree.children.head.lhs.lexeme;
+          val symbolLookup: Either[TypedVariable, ProcedureScope] = symbolTable(id)
+          symbolLookup match {
+            case Left(value: TypedVariable) => return value.tpe
+            case Right(value: ProcedureScope) => return value.tpe
+          }
+        }
+        else if (tree.production == "factor LPAREN expr RPAREN") {
+          val Seq(_, expr, _) = tree.children;
+          return typeOf(expr);
+        }
+        else if (tree.production == "factor factor LPAREN argsopt RPAREN") {
+          val Seq(factor2, _, argsopt, _) = tree.children;
+          val factorType = typeOf(factor2);
+          factorType match {
+            case IntType => sys.error("Type Mismatch: Got int, expected a function!")
+            case FunctionType(parameterTypes, returnType) => {
+              if (argsopt.children.isEmpty) {
+                // argsopt
+                if (parameterTypes.nonEmpty) {
+                  sys.error("Calling function with no args, got args: " + argsopt);
+                }
+                return returnType;
+              }
+              //argsopt args
+              val argTypes = unWrap(argsopt.children.head).map(x => typeOf(x))
+              if (argTypes.length != parameterTypes.length) {
+                sys.error("Expected " + parameterTypes.length + " args, got:" + argTypes.length)
+              }
+              parameterTypes.toList.zipWithIndex.foreach { case (typ, i) => mustEqual( argTypes(i), typ) }
+              return returnType;
+            }
+          }
+        }
+        println(tree);
+        sys.error("could not type")
+      }
+
       treeToType.getOrElseUpdate(tree, fun)
     }
 
     /* Check that the type of the expression returned from the procedure matches the declared type of the procedure. */
     mustEqual(scope.returnType, typeOf(scope.expras))
-    
+
+    println("all trees: ");
+    println(treeToType)
     Map() ++ treeToType
   }
 

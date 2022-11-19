@@ -88,18 +88,29 @@ B
   test("TypeTest 1"){
     //val input = "def hello () : Int = {6}";
     //val input = "def hello () : Int = { 5 + 5 }";
-    val input = "def hello () : Int = { " +
+    val input = "def hello (a : Int, b : Int) : Int = { " +
       //"var x : Int ;" +
       "var x : (Int, Int, Int) => Int ;" +
-      "var y : () => Int ;" +
-      "var y : (Int, Int) => (Int) => Int ;" +
-      "x" +
+      "var n : () => Int ;" +
+      "var o : (Int) => (Int, Int, Int) => Int ;" +
+      //"var y : () => Int ;" +
+      //"var y : (Int, Int) => (Int) => Int ;" +
+      //"var normal : Int ;" +
+      //"x;" +
+      "o(0);"+
+      "5" +
+      //"y = x;" +
+      //"x = x + 2" +
       "}"
     //println(input)
     val out = Lacs.scanAndParse(input);
-    val vardef = out.children(1).children(0).children(9)
+    //val vardef = out.children(1).children(0).children(9)
+
+    //val a = ProcedureScope(input)
+
     //println(vardef.children(0).lhs.lexeme)
-    println(Typer.parseVarDefs(vardef));
+    //println(Typer.parseVarDefs(vardef));
+    println(Typer.typeTree(out))
     //println(Typer.parseType(new Tree(Token("type", "INT"))));
 
     //println(Typer.parseType(out));
