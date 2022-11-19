@@ -16,6 +16,7 @@ package cs241e.assignments
 import ProgramRepresentation._
 import cs241e.scanparse.Grammars._
 
+import scala.Seq
 import scala.collection.mutable
 
 /** Implementation of context-sensitive analysis for the Lacs language. */
@@ -42,8 +43,30 @@ object Typer {
   def parseType(tree: Tree): Type = {
     val types = collect(tree, "type")
     require(types.size == 1)
+    val root = types.head;
+    if(root.children.length == 1){ // M
+      return IntType;
+    }
+    //Production rule is: type LPAREN typesopt RPAREN ARROW type
+    val returnType = parseType(root.children(4))
 
-    ???
+    // Type is function type
+    val argTypesTree = root.children(1)
+    if(argTypesTree.children.isEmpty){
+      return FunctionType(Seq(), returnType)
+    }
+
+    def unwrapTypes(typesTree: Tree): Seq[Type] = {
+      // Production rule: types type COMMA types
+      if(typesTree.children.isEmpty){
+        return Seq();
+      }
+
+      val rest = if (typesTree.children.length >= 2) unwrapTypes(typesTree.children(2)) else Seq()
+      return Seq(parseType(typesTree.children.head)) ++ rest
+    }
+
+    return FunctionType(unwrapTypes(argTypesTree.children.head), returnType)
   }
 
   /** A variable combined with its declared type. */
@@ -58,7 +81,9 @@ object Typer {
 
   /** Given a tree containing subtrees rooted at "vardef", creates a `TypedVariable` for each such tree. */
   def parseVarDefs(tree: Tree): Seq[TypedVariable] = {
-    collect(tree, "vardef").map{ varDef => ??? }
+    collect(tree, "vardef").map{ varDef => TypedVariable(
+      makeVariable(varDef.children.head.lhs.lexeme,  // Get ID
+        parseType(varDef)), parseType(varDef))}
   }
 
   /** Call `sys.error()` if any `String` occurs in `names` multiple times. */

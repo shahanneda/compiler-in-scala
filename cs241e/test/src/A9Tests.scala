@@ -1,9 +1,8 @@
-import cs241e.assignments.Parsing.{parseCYK, parseEarley}
-import cs241e.assignments.{A8, Assembler, Lacs, Reg, Scanning}
+import cs241e.assignments.Parsing.parseEarley
+import cs241e.assignments.{Assembler, Lacs, Reg, Scanning, Typer}
 import cs241e.mips.State
-import cs241e.nosource.ParsingPrivate
 import cs241e.scanparse.DFAs.{DFA, Token}
-import cs241e.scanparse.Grammars.parseGrammar
+import cs241e.scanparse.Grammars.{Tree, parseGrammar}
 import org.scalatest.FunSuite
 
 /* This is an example of a class for running and testing your code. Add other testing methods here
@@ -15,7 +14,7 @@ import org.scalatest.FunSuite
  * on the left.
  */
 
-class A8Tests extends FunSuite {
+class A9Tests extends FunSuite {
   test("maximalMunchScan") {
     val dfa = DFA(
       alphabet = "abc".toSet,
@@ -85,22 +84,29 @@ B
     //println("longest is: ", ParsingPrivate.longestPrefix(grammar, input));
     println(out)
   }
-  test("parse2"){
-      //val input = "def hello () : Int = {6}";
-      val input = "def hello () : Int = { 5 + 5)";
-      val out = Lacs.scanAndParse(input);
-      println(out)
-  }
-  test("parse3"){
-    val grammar = Lacs.grammar
-    //val input = "defdef DEF ID LPAREN parmsopt RPAREN COLON type BECOMES LBRACE vardefsopt defedfsopt expras RBRACE".split(" ").toSeq
-    val input = "def hello () : Int = { 5 + 5 }".split(" ").toSeq
 
-    println(input)
-    val out = parseEarley(grammar, input.toIndexedSeq)
-    //println("longest is: ", ParsingPrivate.longestPrefix(grammar, input));
-    println(out)
+  test("TypeTest 1"){
+    //val input = "def hello () : Int = {6}";
+    //val input = "def hello () : Int = { 5 + 5 }";
+    val input = "def hello () : Int = { " +
+      //"var x : Int ;" +
+      "var x : (Int, Int, Int) => Int ;" +
+      "var y : () => Int ;" +
+      "var y : (Int, Int) => (Int) => Int ;" +
+      "x" +
+      "}"
+    //println(input)
+    val out = Lacs.scanAndParse(input);
+    val vardef = out.children(1).children(0).children(9)
+    //println(vardef.children(0).lhs.lexeme)
+    println(Typer.parseVarDefs(vardef));
+    //println(Typer.parseType(new Tree(Token("type", "INT"))));
+
+    //println(Typer.parseType(out));
+
+    //println(out)
   }
+
 
 
   def printState(s: State): Unit = {
