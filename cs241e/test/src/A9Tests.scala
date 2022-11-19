@@ -93,12 +93,13 @@ B
       "var x : (Int, Int, Int) => Int ;" +
       "var n : () => Int ;" +
       "var o : (Int) => (Int, Int, Int) => Int ;" +
+      "def inner(a : Int) : Int = { 3} " +
       //"var y : () => Int ;" +
       //"var y : (Int, Int) => (Int) => Int ;" +
       //"var normal : Int ;" +
       //"x;" +
       "o(0);"+
-      "5" +
+      "if (6 == 50) {5 - 2} else {4}" +
       //"y = x;" +
       //"x = x + 2" +
       "}"
