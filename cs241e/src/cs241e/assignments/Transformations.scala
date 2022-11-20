@@ -20,6 +20,7 @@ import MemoryManagement._
 import cs241e.mips._
 import cs241e.Utils._
 import Debugger._
+import cs241e.assignments.Transformations.closureChunk
 
 import scala.collection.mutable
 
@@ -618,7 +619,6 @@ object Transformations {
       out2.toSet
     }
 
-
     println(frameOnHeap)
 
     /** The first phase of compilation: performs the transformations up to eliminateScopes so that
@@ -716,10 +716,10 @@ object Transformations {
         */
       def eliminateCalls(code: Code): Code = {
         val caller = currentProcedure
-        
 
         def fun: PartialFunction[Code, Code] = {
           case Call(procedure, args, isTail) => {
+            val isHeapAllocated = frameOnHeap.contains(procedure)
             val caller = currentProcedure
             val callee = procedure
             val tempVars = createTempVars(procedure.parameters).toList
@@ -741,7 +741,7 @@ object Transformations {
               }),
               computeStaticLink(callee),
               write(tmpStaticLink, Reg.result),
-              Stack.allocate(paramChunk),
+              if (isHeapAllocated) heap.allocate(paramChunk) else Stack.allocate(paramChunk),
               Block(
                 paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
                   if(paramVar == procedure.staticLink){
@@ -762,8 +762,55 @@ object Transformations {
               JALR(Reg.targetPC),
             ))
           }
-          //case Closure(procedure) => ???
-          //case CallClosure(closure, arguments, parameters, isTail) => ???
+          case CallClosure(closure, arguments: Seq[Code], parameters: Seq[Variable], isTail) => {
+            val staticLink = new Variable("staticLink")
+            val paramChunk = new Chunk(parameters :+ staticLink)
+            val tempVars = createTempVars(parameters)
+            val closureLocation = new Variable("tmp closure chunk location")
+              /*
+              Evaluate params to tempary variables
+              put params into param frame
+              set static link to closure enviroment
+              call closure
+               */
+            Scope(tempVars ++ Seq(staticLink, closureLocation), block(
+              Comment("Start of call to closure from " + caller.name),
+              Block(arguments.zipWithIndex.map { case (argCode, i) => {
+                block(
+                  Comment("Evaluating arg code " + i),
+                  argCode,
+                  Comment("writing to temp var " + tempVars(i)),
+                  write(tempVars(i), Reg.result),
+                )
+              }
+              }),
+              // Get the static link
+              closure,
+              write(closureLocation, Reg.result),
+              closureChunk.load(Reg.result, Reg.result, closureCode),
+              write(staticLink, Reg.result),
+              heap.allocate(paramChunk),
+              Block(
+                paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
+                  if(i == paramChunk.variables.length - 1){ // is the last one, static link
+                    block(
+                      read(Reg.scratch, staticLink),
+                      paramChunk.store(Reg.result, staticLink, Reg.scratch),
+                    )
+                  }else{
+                    block(
+                      read(Reg.scratch, tempVars(i)),
+                      paramChunk.store(Reg.result, paramVar, Reg.scratch)
+                    )
+                  }
+                },
+              ),
+              closure,
+              read(Reg.targetPC, closureLocation),
+              closureChunk.load(Reg.targetPC, Reg.targetPC, closureCode),
+              JALR(Reg.targetPC),
+            ))
+          }
         }
 
 
@@ -771,12 +818,27 @@ object Transformations {
       }
 
       /** Eliminate all `Closure`s from a tree of `Code` by translating them to simpler pieces of `Code`.
-        *
-        * As given, this method just returns the `code` unchanged. When you implement handling of closures in
-        * Assignment 6, you will change the method body to actually eliminate `Closure`s.
-        *
         **/
-      def eliminateClosures(code: Code): Code = code
+      def eliminateClosures(code: Code): Code = {
+        def f: PartialFunction[Code, Code] = {
+          case Closure(procedure) => {
+            val closureLocation = new Variable("temp closure location " + procedure.name)
+
+            Scope(Seq(closureLocation), block(
+              LIS(Reg.result),
+              Use(procedure.label),
+              write(closureLocation, Reg.result),
+              heap.allocate(closureChunk),
+              read(Reg.scratch, closureLocation),
+              closureChunk.store(Reg.result, closureCode, Reg.scratch),
+              closureChunk.store(Reg.result, closureEnvironment, Reg.framePointer)
+              // returning the closure chunk
+            ))
+          }
+        }
+
+        transformCode(code, f)
+      }
 
       /** Find `Call`s that appear in tail position in their containing procedure. Replace each one with the same
         * `Call` but with `isTail` set to `true`.
@@ -811,6 +873,7 @@ object Transformations {
 
     def phaseTwo(currentProcedure: Procedure): Code = {
       val (code, frame) = phaseOneResults(currentProcedure)
+      val isHeapAllocated = frameOnHeap.contains(currentProcedure)
 
       /** Adds a prologue and epilogue to the `code` of a procedure.
         *
@@ -839,7 +902,7 @@ object Transformations {
       def addEntryExit(code: Code): Code = {
         val enter = block(
           ADD(Reg.savedParamPtr, Reg.result), // store param ptr until we make a proper frame
-          Stack.allocate(frame),
+          if (isHeapAllocated) heap.allocate(frame) else Stack.allocate(frame),
           frame.store(Reg.result, currentProcedure.savedPC, Reg.link), // store return address
           frame.store(Reg.result, currentProcedure.paramPtr, Reg.savedParamPtr), // store saved param pointer
           frame.store(Reg.result, currentProcedure.dynamicLink, Reg.framePointer), // save callers frame pointer
@@ -852,9 +915,7 @@ object Transformations {
           Comment("Restoring older frame pointer in procedure " + currentProcedure.name),
           frame.load(Reg.framePointer, Reg.framePointer, currentProcedure.dynamicLink), // load old frame pointer
           Comment("after restore " + currentProcedure.name),
-          Stack.pop, // pops stack frame
-          Stack.pop, // pops params frame
-          JR(Reg.link),
+          if (!isHeapAllocated) block(Stack.pop, Stack.pop, JR(Reg.link)) else JR(Reg.link)
         )
         if(code == null){
           sys.error("No body given for procedure: " + currentProcedure.name)

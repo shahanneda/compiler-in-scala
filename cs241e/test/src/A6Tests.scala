@@ -54,9 +54,12 @@ class A6Tests extends FunSuite {
     )
 
     main.code = block(
+      /*
       CallClosure(call(f), Seq(ADD(Reg.result, Reg.zero, Reg.zero), constRes(99)),
         Seq(new Variable("c-1")),
       ),
+      */
+      call(g, constRes(99))
     )
     // 8 from 16777168
 
