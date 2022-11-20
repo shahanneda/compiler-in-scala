@@ -605,7 +605,6 @@ object Transformations {
         }
         transformCode(p.code, f)
       }
-      println(inputProcedures)
       inputProcedures.foreach(helper)
 
       val out2 = mutable.Set[Procedure]()
@@ -748,7 +747,7 @@ object Transformations {
               computeStaticLink(callee),
               write(tmpStaticLink, Reg.result),
               if (isTail && !currentIsHeapAllocated && currentProcedure.name != "start") {
-                println(" Doing tail call optimization for call from " + currentProcedure.name + " to " + callee.name)
+                //println(" Doing tail call optimization for call from " + currentProcedure.name + " to " + callee.name)
                 block(
                   Comment(" Doing tail call optimization for call from " + currentProcedure.name + " to " + callee.name),
                   Stack.allocate(tmpParamsChunk),
@@ -856,13 +855,13 @@ object Transformations {
               Block(
                 paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
                   if(i == 0){ // is the last one, static link
-                    println(" var should be static link " + paramVar)
+                    //println(" var should be static link " + paramVar)
                     block(
                       read(Reg.scratch, staticLink),
                       paramChunk.store(Reg.result, staticLink, Reg.scratch),
                     )
                   }else{
-                    println(" should match " +  paramVar + tempVars(i-1))
+                    //println(" should match " +  paramVar + tempVars(i-1))
                     block(
                       read(Reg.scratch, tempVars(i - 1)),
                       paramChunk.store(Reg.result, paramVar, Reg.scratch)
@@ -928,15 +927,12 @@ object Transformations {
           case Call(procedure, arguments, _) => {
             var isTail = true
             var p = procedure.outer;
-            println(" got call ", procedure, " from ", currentProcedure.name)
             while(p.isDefined){
               if (p.get == currentProcedure){
                 isTail = false;
-                println(" setting false")
               }
               p = p.get.outer;
             }
-            println(" for " + procedure + " returning " + isTail)
             Call(procedure, arguments, isTail = isTail)
           }
           case CallClosure(closure, arguments, parameters, _) => CallClosure(closure, arguments, parameters, isTail = true)
@@ -948,8 +944,6 @@ object Transformations {
 
       val code1 = eliminateClosures(currentProcedure.code)
       val code2 = detectTailCalls(code1)
-      println(code1)
-      println(code2)
       val code3 = eliminateCalls(code2)
       val code4 = eliminateIfStmts(code3)
       val (code5, variables) = eliminateScopes(code4)

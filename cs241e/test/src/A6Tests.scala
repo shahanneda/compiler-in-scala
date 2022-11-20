@@ -36,7 +36,6 @@ class A6Tests extends FunSuite {
     val f = new Procedure("f", Seq(farg1), Option(h))
     val g = new Procedure("g", Seq(garg1, garg2), Option(f))
 
-    println("main outer is " + main.outer)
     val fvar = new Variable("fvar");
     val closeVar = new Variable("closure Variable");
 
