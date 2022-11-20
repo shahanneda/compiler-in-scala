@@ -582,7 +582,7 @@ object Transformations {
     /** The `Chunk` to store the parameters and static link of each procedure. */
     val paramChunks: Map[Procedure, Chunk] = makeMap(procedures, procedure => {
       new Chunk(procedure.parameters ++ Seq(procedure.staticLink))
-    }
+      }
     )
 
     /** The set of procedures whose frame needs to be allocated on the heap (instead of on the stack).
@@ -591,9 +591,35 @@ object Transformations {
       * - recursively, every enclosing procedure that contains an inner procedure nested within it whose frame is
       *   allocated on the heap
       */
-    val frameOnHeap: Set[Procedure] = Set()
+    val frameOnHeap: Set[Procedure] = {
+      val out = mutable.Set[Procedure]()
 
-    
+      def helper(p: Procedure): Unit ={
+        def f : PartialFunction[Code, Code] = {
+          case Closure(c: Procedure) => {
+            out.add(c);
+            Word.zero
+          }
+        }
+        transformCode(p.code, f)
+      }
+      inputProcedures.foreach(helper)
+
+      val out2 = mutable.Set[Procedure]()
+      def goUpHelper(procedure: Procedure): Unit ={
+        out2.add(procedure)
+        procedure.outer match {
+          case Some(value) => goUpHelper(value)
+          case None => ()
+        }
+      }
+      out.foreach(goUpHelper);
+
+      out2.toSet
+    }
+
+
+    println(frameOnHeap)
 
     /** The first phase of compilation: performs the transformations up to eliminateScopes so that
       * the full set of variables of the procedure is known, and so that a `Chunk` can be created for the
@@ -615,11 +641,11 @@ object Transformations {
         val caller = currentProcedure
         val outer = callee.outer
 
-        println(callee.outer + " outer for " + callee.name)
+        //println(callee.outer + " outer for " + callee.name)
         if(outer.isEmpty){
-          println("Returning  null static link for " + callee.name)
+          //println("Returning  null static link for " + callee.name)
           block(
-            Comment("Static link is ZERO should be outer function!" + callee.name),
+            //Comment("Static link is ZERO should be outer function!" + callee.name),
             ADD(Reg.result, Reg.zero)
           )
         }else{
@@ -871,7 +897,7 @@ object Transformations {
               val currentFrameChunk = phaseOneResults(procedure)._2
 
               if(currentFrameChunk.variables.contains(variable)){
-                println("Variable " + variable + " is in " + procedure.name + " vars ")
+                //println("Variable " + variable + " is in " + procedure.name + " vars ")
                 if(read){
                   block(
 //                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
@@ -888,7 +914,7 @@ object Transformations {
                   )
                 }
               }else if(paramChunk.variables.contains(variable)){
-                println("Variable " + variable + " is in " + procedure.name + " params ")
+                //println("Variable " + variable + " is in " + procedure.name + " params ")
                 if(read){
                   block(
 //                    actualFrame.load(Reg.framePointer, Reg.result, currentFrame),

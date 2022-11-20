@@ -176,7 +176,7 @@ object MemoryManagement {
       ADD(Reg.result, Reg.stackPointer, Reg.zero), // store address of start of chunk in Reg.result
 
       chunk.initialize,
-      Comment("End of chunck allocation")
+      Comment("End of chunk allocation")
     )
     /** Generate the code to deallocate the space for the `Chunk` that is at the top of the stack. To determine
       * the size of this `Chunk`, takes advantage of the convention that word 0 of each `Chunk` stores its size
@@ -248,7 +248,10 @@ object MemoryManagement {
       * `ProgramRepresentation.scala`.
       */
     def allocate(chunk: Chunk): Code = block(
-      ???,
+      LIS(Reg.scratch),
+      Word(encodeUnsigned(chunk.bytes)),
+      ADD(Reg.result, Reg.heapPointer),
+      ADD(Reg.heapPointer, Reg.heapPointer, Reg.scratch),
       chunk.initialize
     )
   }

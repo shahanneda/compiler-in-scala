@@ -26,33 +26,37 @@ class A6Tests extends FunSuite {
     val garg1 = new Variable("garg1")
     val f = new Procedure("f", Seq(), Option(main))
     val g = new Procedure("g", Seq(garg1), Option(main))
+    val inner = new Procedure("inner", Seq(), Option(main))
+
     println("main outer is " + main.outer)
 
     val fvar = new Variable("fvar");
+    val closeVar = new Variable("closure Variable");
 
     f.code = Scope(Seq(fvar),
       block(
         Comment("f body"),
-        LIS(Reg.result),
-        Word(encodeSigned(3)),
-        write(fvar, Reg.result),
-        read(Reg(13), arg1),
-
-        Call(g, Seq(block(
-          LIS(Reg.result),
-          Word(encodeSigned(4)),
-        )))
+//        LIS(Reg.result),
+//        Word(encodeSigned(3)),
+//        write(fvar, Reg.result),
+//        read(Reg(13), arg1),
+//        Call(g, Seq(block(
+//          LIS(Reg.result),
+//          Word(encodeSigned(4)),
+//        ))),
+        Closure(g),
       )
     )
 
     g.code = block(
       read(Reg(14), arg2),
-//      read(Reg(15), fvar),
       read(Reg(16), garg1)
     )
 
     main.code = block(
-      Call(f, Seq()) ,
+      CallClosure(call(f), Seq(ADD(Reg.result, Reg.zero, Reg.zero), constRes(99)),
+        Seq(new Variable("c-1")),
+      ),
     )
     // 8 from 16777168
 
