@@ -22,6 +22,7 @@ import cs241e.Utils._
 import Debugger._
 import cs241e.assignments.Transformations.closureChunk
 
+import scala.:+
 import scala.collection.mutable
 
 /** Implementations of various transformations on the `Code` objects defined in `ProgramRepresentation.scala`.
@@ -582,7 +583,7 @@ object Transformations {
 
     /** The `Chunk` to store the parameters and static link of each procedure. */
     val paramChunks: Map[Procedure, Chunk] = makeMap(procedures, procedure => {
-      new Chunk(procedure.parameters ++ Seq(procedure.staticLink))
+      new Chunk(procedure.staticLink +: procedure.parameters)
       }
     )
 
@@ -599,11 +600,12 @@ object Transformations {
         def f : PartialFunction[Code, Code] = {
           case Closure(c: Procedure) => {
             out.add(c);
-            Word.zero
+            Word(encodeSigned(1))
           }
         }
         transformCode(p.code, f)
       }
+      println(inputProcedures)
       inputProcedures.foreach(helper)
 
       val out2 = mutable.Set[Procedure]()
@@ -619,7 +621,7 @@ object Transformations {
       out2.toSet
     }
 
-    println(frameOnHeap)
+    println("frame on heap is", frameOnHeap)
 
     /** The first phase of compilation: performs the transformations up to eliminateScopes so that
       * the full set of variables of the procedure is known, and so that a `Chunk` can be created for the
@@ -686,6 +688,7 @@ object Transformations {
 
             //                    block(paramChunks(currentProcedure).load(Reg.framePointer, Reg.result, frameVar))
         //                    ADD(Reg.result, oneUnderEnclosing.si )
+            println(caller, callee, oneUnderEnclosing)
               block(
                     Comment("jumps needed" + numberOfStaticLinkJumpsNeededBackup),
                       Comment(" static link for " +  callee.name + " from " + caller.name + " is " + oneUnderEnclosing.outer.orNull.name),
@@ -744,14 +747,14 @@ object Transformations {
               if (isHeapAllocated) heap.allocate(paramChunk) else Stack.allocate(paramChunk),
               Block(
                 paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
-                  if(paramVar == procedure.staticLink){
+                  if(paramVar == procedure.staticLink){ // i == 0
                     block(
                       read(Reg.scratch, tmpStaticLink),
                       paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
                     )
                   }else{
                     block(
-                      read(Reg.scratch, tempVars(i)),
+                      read(Reg.scratch, tempVars(i - 1)),
                       paramChunk.store(Reg.result, paramVar, Reg.scratch)
                     )
                   }
@@ -763,8 +766,8 @@ object Transformations {
             ))
           }
           case CallClosure(closure, arguments: Seq[Code], parameters: Seq[Variable], isTail) => {
-            val staticLink = new Variable("staticLink")
-            val paramChunk = new Chunk(parameters :+ staticLink)
+            val staticLink = new Variable("staticLink", isPointer = true)
+            val paramChunk = new Chunk(staticLink +: parameters)
             val tempVars = createTempVars(parameters)
             val closureLocation = new Variable("tmp closure chunk location")
             if(arguments.length != parameters.length){
@@ -788,30 +791,35 @@ object Transformations {
               }
               }),
               // Get the static link
+              Comment("Before evaluating closure"),
               (closure match {
                 case Call(procedure, arguments, isTail) => fun(Call(procedure, arguments, isTail))
                 case CallClosure(closure, arguments, parameters, isTail) => fun(CallClosure(closure, arguments, parameters, isTail))
                 case any => any
               }),
+              Comment("After evaluating closure"),
               write(closureLocation, Reg.result),
               closureChunk.load(Reg.result, Reg.result, closureEnvironment),
               write(staticLink, Reg.result),
               heap.allocate(paramChunk),
               Block(
                 paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
-                  if(i == paramChunk.variables.length - 1){ // is the last one, static link
+                  if(i == 0){ // is the last one, static link
+                    println(" var should be static link " + paramVar)
                     block(
                       read(Reg.scratch, staticLink),
                       paramChunk.store(Reg.result, staticLink, Reg.scratch),
                     )
                   }else{
+                    println(" should match " +  paramVar + tempVars(i-1))
                     block(
-                      read(Reg.scratch, tempVars(i)),
+                      read(Reg.scratch, tempVars(i - 1)),
                       paramChunk.store(Reg.result, paramVar, Reg.scratch)
                     )
                   }
                 },
               ),
+              Comment("about to call closure "),
               read(Reg.targetPC, closureLocation),
               closureChunk.load(Reg.targetPC, Reg.targetPC, closureCode),
               JALR(Reg.targetPC),
@@ -829,15 +837,19 @@ object Transformations {
         def f: PartialFunction[Code, Code] = {
           case Closure(procedure) => {
             val closureLocation = new Variable("temp closure location " + procedure.name)
+            val staticLink = new Variable("temp temp static link for calling closure " + procedure.name)
 
-            Scope(Seq(closureLocation), block(
+            Scope(Seq(closureLocation, staticLink), block(
               LIS(Reg.result),
               Use(procedure.label),
               write(closureLocation, Reg.result),
+              computeStaticLink(procedure),
+              write(staticLink, Reg.result),
               heap.allocate(closureChunk),
               read(Reg.scratch, closureLocation),
               closureChunk.store(Reg.result, closureCode, Reg.scratch),
-              closureChunk.store(Reg.result, closureEnvironment, Reg.framePointer)
+              read(Reg.scratch, staticLink),
+              closureChunk.store(Reg.result, closureEnvironment, Reg.scratch)
               // returning the closure chunk
             ))
           }

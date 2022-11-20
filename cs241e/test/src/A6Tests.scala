@@ -3,7 +3,7 @@ import cs241e.assignments.Assembler._
 import cs241e.assignments.CodeBuilders.{binOp, plus}
 import cs241e.assignments.ProgramRepresentation._
 import cs241e.assignments.Transformations._
-import cs241e.assignments._
+import cs241e.assignments.{ProgramRepresentation, _}
 import cs241e.mips.{CPU, State, Word}
 import org.scalatest.FunSuite
 
@@ -25,13 +25,18 @@ class A6Tests extends FunSuite {
 
     val main = new Procedure("main", Seq(arg1, arg2))
     val garg1 = new Variable("garg1")
+    val garg2 = new Variable("garg2")
     val farg1 = new Variable("farg1")
-    val f = new Procedure("f", Seq(), Option(main))
-    val g = new Procedure("g", Seq(garg1), Option(f))
-    val inner = new Procedure("inner", Seq(), Option(main))
+    val harg1 = new Variable("harg1")
+
+    val hvar1 = new Variable("hvar1");
+    val hvar2 = new Variable("hvar2");
+    val hvar3 = new Variable("hvar3-counter");
+    val h = new Procedure("h", Seq(harg1), Option(main))
+    val f = new Procedure("f", Seq(farg1), Option(h))
+    val g = new Procedure("g", Seq(garg1, garg2), Option(f))
 
     println("main outer is " + main.outer)
-
     val fvar = new Variable("fvar");
     val closeVar = new Variable("closure Variable");
 
@@ -40,57 +45,145 @@ class A6Tests extends FunSuite {
         Comment("f body"),
         LIS(Reg.result),
         Word(encodeSigned(3)),
-        write(fvar, Reg.result),
+        //write(fvar, Reg.result),
 //        read(Reg(13), arg1),
 //        Call(g, Seq(block(
 //          LIS(Reg.result),
 //          Word(encodeSigned(4)),
 //        ))),
+        //Call(g, Seq(constRes(10))),
+        //Closure(g),
+        //write(fvar, Reg.result),
+        //CallClosure(readVarRes(fvar), Seq(readVarRes(fvar)), Seq(new Variable("tmp-fvar"))),
         Closure(g),
       )
     )
 
     // reg 14 == 3
     // reg 16 ==  99
-
-
-    g.code = block(
-      read(Reg(14), fvar),
-      read(Reg(16), garg1)
-    )
-
+    var gvar1 = new Variable("gvar1");
     var mainVar = new Variable("main-var");
+
+    g.code = Scope(Seq(gvar1), block(
+      Comment("g body"),
+      /*
+      readVarRes(harg1),
+      readVarRes(farg1),
+      readVarRes(garg1),
+      readVarRes(garg2),
+      readVarRes(gvar1),
+      readVarRes(fvar),
+      readVarRes(hvar3),
+      */
+      //readVarRes(hvar2),
+      //readVarRes(hvar3),
+      /*
+      Closure(g),
+      write(gvar1, Reg.result),
+      Comment("G loading variable from h"),
+      Comment("Done loading"),
+      */
+      //CallClosure(readVarRes(garg1), Seq(readVarRes(gvar1)), Seq(new Variable("tmp-gvar"))),
+    ))
+
+    h.code = {
+      //binOp(binOp(read(Reg.result, harg1), plus, read(Reg.result, farg1)), plus, readVarRes(farg1))
+      Scope(Seq(hvar1, hvar2, hvar3), block(
+        Closure(f),
+        write(hvar1, Reg.result),
+        constRes(99999),
+        write(hvar3, Reg.result),
+        Closure(g),
+        write(hvar2, Reg.result),
+        constRes(9999),
+        write(harg1, Reg.result),
+        Comment("Before calling closure f from h"),
+        CallClosure(readVarRes(hvar1), Seq(readVarRes(hvar2)), Seq(new Variable("tmp")))
+      ))
+    }
+
     main.code = Scope(Seq(mainVar), block(
-      call(f),
+      //call(g, constRes(10), constRes(19)),
+      call(h, constRes(10)),
       write(mainVar, Reg.result),
-      CallClosure(read(Reg.result, mainVar), Seq(constRes(99)),
-        Seq(new Variable("c-1")),
+      Comment("Main var just wrote"),
+      CallClosure(read(Reg.result, mainVar), Seq(constRes(5), constRes(10)),
+       Seq(new Variable("c-1"), new Variable("c-2")),
       ),
+      /*
+       */
+      //Closure(g),
+      //CallClosure(ADD(Reg.result, Reg.result), Seq(ADD(Reg.result, Reg.result)), Seq(new Variable("tmp")))
+      //call(h, constRes(10))
       //call(g, constRes(99))
     ))
     // 8 from 16777168
 
-    val code = compilerA6(Seq(main, f, g))
+    val code = compilerA6(Seq(main, f, g, h))
     printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = true))
 //    printState(A4.loadAndRun(code, debug = false))
   }
 
+  /*
+  Accessing parent args and parent params (upto two nests)
+  closure with 2 params
+  closure with 1 params
+  closure with no params
+
+  // Closure accesses stack variables
+   */
   test("increaseBy") {
     val arg1 = new Variable("arg1-main")
     val arg2 = new Variable("arg2-main")
     val main = new Procedure("main", Seq(arg1, arg2))
 
-    val increaseByGeneratorArg = new Variable("ibg arg");
-    val increaseByGenerator = new Procedure("increaseByGenerator", Seq(increaseByGeneratorArg))
+    val increaseByGeneratorArg = new Variable("increaseByGeneratorArg");
+    val increaseByGeneratorVar = new Variable("ibgv ")
+    val increaseByGenerator = new Procedure("increaseByGenerator", Seq(increaseByGeneratorArg), Option(main))
 
     val increaseArg = new Variable("increase arg")
-    val increase = new Procedure("", Seq(increaseArg), Option(increaseByGenerator))
-    increase.code = block(
-      binOp(read(Reg.result, increaseArg), plus, read(Reg.result, increaseByGeneratorArg))
+    val increaseArg2 = new Variable("increase arg 2")
+    val increase = new Procedure("increase procedure", Seq(increaseArg, increaseArg2), Option(increaseByGenerator))
+
+    val nothingGenerator = new Procedure("nothingGen", Seq(), Option(main))
+    val nothingProcedure = new Procedure("", Seq(), Option(nothingGenerator))
+
+    nothingProcedure.code = block()
+    nothingGenerator.code = block(
+      Closure(nothingProcedure)
     )
 
-    increaseByGenerator.code = block(
-      Closure(increase),
+    val doubleArg = new Variable("double var");
+    val double = new Procedure("double", Seq(doubleArg), Option(main))
+    double.code = {
+      CallClosure(readVarRes(doubleArg),
+        Seq(
+          block(
+            Comment("before inner call"),
+            CallClosure(readVarRes(doubleArg),
+                Seq(constRes(10), constRes(20)),
+                Seq(new Variable("tmp0-0"), new Variable("tmp1-0"))
+            ),
+            Comment("after inner call"),
+          ),
+          constRes(10)
+        ),
+        Seq(new Variable("tmp0-1"), new Variable("tmp1-1"))
+      )
+    }
+
+
+
+    increase.code = block(
+      Comment("In increase"),
+      binOp(binOp(read(Reg.result, increaseArg), plus, read(Reg.result, increaseByGeneratorArg)), plus, readVarRes(increaseArg2))
+    )
+
+    increaseByGenerator.code = Scope(Seq(increaseByGeneratorVar), block(
+        constRes(100),
+        write(increaseByGeneratorVar, Reg.result),
+        Closure(increase),
+      )
     )
 
     val in1 = new Variable("in1");
@@ -101,21 +194,31 @@ class A6Tests extends FunSuite {
     main.code = Scope(Seq(in1, in2, in10), block(
       Call(increaseByGenerator, Seq(constRes(1))),
       write(in1, Reg.result),
+      /*
       Call(increaseByGenerator, Seq(constRes(2))),
       write(in2, Reg.result),
       Call(increaseByGenerator, Seq(constRes(10))),
       write(in10, Reg.result),
-
-      CallClosure(read(Reg.result, in1), Seq(constRes(10)), Seq(new Variable("tmp") )),
+      CallClosure(read(Reg.result, in1), Seq(constRes(10), constRes(100)), Seq(new Variable("tmp"), new Variable("tmp"))),
       ADD(Reg(15), Reg.result),
-      CallClosure(read(Reg.result, in2), Seq(constRes(10)), Seq(new Variable("tmp") )),
+      */
+      /*
+      CallClosure(read(Reg.result, in2), Seq(constRes(10), constRes(100)), Seq(new Variable("tmp") , new Variable("tmp"))),
       ADD(Reg(16), Reg.result),
-      CallClosure(read(Reg.result, in10), Seq(constRes(10)), Seq(new Variable("tmp") )),
+      CallClosure(read(Reg.result, in10), Seq(constRes(10), constRes(100)), Seq(new Variable("tmp"), new Variable("tmp"))),
       ADD(Reg(17), Reg.result),
+       */
+
+      Closure(double),
+      write(in2, Reg.result),
+      CallClosure(readVarRes(in2), Seq(readVarRes(in1)), Seq(new Variable("tmp"))),
+      ADD(Reg(15), Reg.result)
+      //CallClosure(ADD(Reg.result, Reg.result), Seq(), Seq())
     ))
 
-    val code = compilerA6(Seq(main, increaseByGenerator, increase))
-    printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = false))
+    //val code = compilerA6(Seq(main, increaseByGenerator, increase, nothingGenerator, nothingProcedure))
+    val code = compilerA6(Seq(main, increaseByGenerator, increase, double))
+    printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = true))
   }
 
   test("loop procedure"){
