@@ -1,5 +1,6 @@
 import cs241e.assignments.A5._
 import cs241e.assignments.Assembler._
+import cs241e.assignments.CodeBuilders.{binOp, plus}
 import cs241e.assignments.ProgramRepresentation._
 import cs241e.assignments.Transformations._
 import cs241e.assignments._
@@ -24,8 +25,9 @@ class A6Tests extends FunSuite {
 
     val main = new Procedure("main", Seq(arg1, arg2))
     val garg1 = new Variable("garg1")
+    val farg1 = new Variable("farg1")
     val f = new Procedure("f", Seq(), Option(main))
-    val g = new Procedure("g", Seq(garg1), Option(main))
+    val g = new Procedure("g", Seq(garg1), Option(f))
     val inner = new Procedure("inner", Seq(), Option(main))
 
     println("main outer is " + main.outer)
@@ -36,9 +38,9 @@ class A6Tests extends FunSuite {
     f.code = Scope(Seq(fvar),
       block(
         Comment("f body"),
-//        LIS(Reg.result),
-//        Word(encodeSigned(3)),
-//        write(fvar, Reg.result),
+        LIS(Reg.result),
+        Word(encodeSigned(3)),
+        write(fvar, Reg.result),
 //        read(Reg(13), arg1),
 //        Call(g, Seq(block(
 //          LIS(Reg.result),
@@ -48,25 +50,74 @@ class A6Tests extends FunSuite {
       )
     )
 
+    // reg 14 == 3
+    // reg 16 ==  99
+
+
     g.code = block(
-      read(Reg(14), arg2),
+      read(Reg(14), fvar),
       read(Reg(16), garg1)
     )
 
-    main.code = block(
-      /*
-      CallClosure(call(f), Seq(ADD(Reg.result, Reg.zero, Reg.zero), constRes(99)),
+    var mainVar = new Variable("main-var");
+    main.code = Scope(Seq(mainVar), block(
+      call(f),
+      write(mainVar, Reg.result),
+      CallClosure(read(Reg.result, mainVar), Seq(constRes(99)),
         Seq(new Variable("c-1")),
       ),
-      */
-      call(g, constRes(99))
-    )
+      //call(g, constRes(99))
+    ))
     // 8 from 16777168
 
     val code = compilerA6(Seq(main, f, g))
-    printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = false))
+    printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = true))
 //    printState(A4.loadAndRun(code, debug = false))
   }
+
+  test("increaseBy") {
+    val arg1 = new Variable("arg1-main")
+    val arg2 = new Variable("arg2-main")
+    val main = new Procedure("main", Seq(arg1, arg2))
+
+    val increaseByGeneratorArg = new Variable("ibg arg");
+    val increaseByGenerator = new Procedure("increaseByGenerator", Seq(increaseByGeneratorArg))
+
+    val increaseArg = new Variable("increase arg")
+    val increase = new Procedure("", Seq(increaseArg), Option(increaseByGenerator))
+    increase.code = block(
+      binOp(read(Reg.result, increaseArg), plus, read(Reg.result, increaseByGeneratorArg))
+    )
+
+    increaseByGenerator.code = block(
+      Closure(increase),
+    )
+
+    val in1 = new Variable("in1");
+    val in2 = new Variable("in2");
+    val in10 = new Variable("in10");
+
+    // r15 = 11, r16 == 12, r17 == 20
+    main.code = Scope(Seq(in1, in2, in10), block(
+      Call(increaseByGenerator, Seq(constRes(1))),
+      write(in1, Reg.result),
+      Call(increaseByGenerator, Seq(constRes(2))),
+      write(in2, Reg.result),
+      Call(increaseByGenerator, Seq(constRes(10))),
+      write(in10, Reg.result),
+
+      CallClosure(read(Reg.result, in1), Seq(constRes(10)), Seq(new Variable("tmp") )),
+      ADD(Reg(15), Reg.result),
+      CallClosure(read(Reg.result, in2), Seq(constRes(10)), Seq(new Variable("tmp") )),
+      ADD(Reg(16), Reg.result),
+      CallClosure(read(Reg.result, in10), Seq(constRes(10)), Seq(new Variable("tmp") )),
+      ADD(Reg(17), Reg.result),
+    ))
+
+    val code = compilerA6(Seq(main, increaseByGenerator, increase))
+    printState(A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(2)), debug = false))
+  }
+
   test("loop procedure"){
     val arg1 = new Variable("arg1-main")
     val arg2 = new Variable("arg2-main")

@@ -716,7 +716,7 @@ object Transformations {
         */
       def eliminateCalls(code: Code): Code = {
         val caller = currentProcedure
-
+        //println(code)
         def fun: PartialFunction[Code, Code] = {
           case Call(procedure, args, isTail) => {
             val isHeapAllocated = frameOnHeap.contains(procedure)
@@ -767,6 +767,9 @@ object Transformations {
             val paramChunk = new Chunk(parameters :+ staticLink)
             val tempVars = createTempVars(parameters)
             val closureLocation = new Variable("tmp closure chunk location")
+            if(arguments.length != parameters.length){
+              sys.error("Invalid closure call! " + arguments.length + " vs " + parameters.length + " args !")
+            }
               /*
               Evaluate params to tempary variables
               put params into param frame
@@ -785,9 +788,13 @@ object Transformations {
               }
               }),
               // Get the static link
-              closure,
+              (closure match {
+                case Call(procedure, arguments, isTail) => fun(Call(procedure, arguments, isTail))
+                case CallClosure(closure, arguments, parameters, isTail) => fun(CallClosure(closure, arguments, parameters, isTail))
+                case any => any
+              }),
               write(closureLocation, Reg.result),
-              closureChunk.load(Reg.result, Reg.result, closureCode),
+              closureChunk.load(Reg.result, Reg.result, closureEnvironment),
               write(staticLink, Reg.result),
               heap.allocate(paramChunk),
               Block(
@@ -805,7 +812,6 @@ object Transformations {
                   }
                 },
               ),
-              closure,
               read(Reg.targetPC, closureLocation),
               closureChunk.load(Reg.targetPC, Reg.targetPC, closureCode),
               JALR(Reg.targetPC),
