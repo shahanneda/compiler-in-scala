@@ -1,6 +1,6 @@
 import cs241e.assignments.A5._
 import cs241e.assignments.Assembler._
-import cs241e.assignments.CodeBuilders.{binOp, plus}
+import cs241e.assignments.CodeBuilders.{binOp, leCmp, ltCmp, plus, whileLoop}
 import cs241e.assignments.ProgramRepresentation._
 import cs241e.assignments.Transformations._
 import cs241e.assignments.{ProgramRepresentation, _}
@@ -173,7 +173,6 @@ class A6Tests extends FunSuite {
     }
 
 
-
     increase.code = block(
       Comment("In increase"),
       binOp(binOp(read(Reg.result, increaseArg), plus, read(Reg.result, increaseByGeneratorArg)), plus, readVarRes(increaseArg2))
@@ -235,6 +234,105 @@ class A6Tests extends FunSuite {
     val code = compilerA6(Seq(main, loop))
     printState(A4.loadAndRun(code, debug = false))
   }
+  test("nested") {
+    val arg1 = new Variable("arg1-main")
+    val arg2 = new Variable("arg2-main")
+
+    val main = new Procedure("main", Seq(arg1, arg2))
+    val garg1 = new Variable("garg1")
+    val f = new Procedure("f", Seq(), Option(main))
+    val g = new Procedure("g", Seq(garg1), Option(f))
+    println("main outer is " + main.outer)
+
+    val fvar = new Variable("fvar");
+
+    f.code = Scope(Seq(fvar),
+      block(
+        constRes(120),
+        write(fvar, Reg.result ),
+        Call(g, Seq(block(
+          constRes(121),
+        )))
+      )
+    )
+
+    g.code = block(
+      read(Reg(14), arg2),
+      read(Reg(15), fvar),
+      read(Reg(16), garg1)
+    )
+
+    main.code = block(
+      Call(f, Seq()),
+    )
+    val code = compilerA6(Seq(main, f, g))
+    val out = A4.loadAndRun(code, Word(encodeUnsigned(1)), Word(encodeUnsigned(119)), debug = false);
+    assert(out.reg(14) == encodeSigned(119))
+    assert(out.reg(15) == encodeSigned(120))
+    assert(out.reg(16) == encodeSigned(121))
+  }
+
+  test("simple tail"){
+    val arg1 = new Variable("arg1-main")
+    val arg2 = new Variable("arg2-main")
+    val main = new Procedure("main", Seq(arg1, arg2))
+
+    val farg1 = new Variable("farg1");
+    val farg2 = new Variable("farg1");
+    val f = new Procedure("f", Seq(farg1, farg2));
+    f.code = block(
+      ifStmt(readVarRes(farg1), ltCmp, constRes(10000), block(
+          read(Reg.result, farg1),
+          Comment("IN F"),
+          call(f, binOp(readVarRes(farg1), plus, constRes(1)), readVarRes(farg2))
+      ), block(
+        binOp(readVarRes(farg1), plus, readVarRes(farg2))
+      ))
+    )
+
+    main.code = block(
+      LIS(Reg.scratch),
+      Word(encodeSigned(0)),
+      Call(f, Seq(ADD(Reg.result, Reg.scratch), constRes(500))) ,
+      ADD(Reg.result, Reg.result),
+    )
+
+    val code = compilerA6(Seq(main, f))
+    val out = A4.loadAndRun(code, debug = false);
+    printState(out)
+    assert(decodeUnsigned(out.reg(3)) == 10500)
+  }
+
+  test("simple tail2"){
+    val arg1 = new Variable("arg1-main")
+    val arg2 = new Variable("arg2-main")
+    val main = new Procedure("main", Seq(arg1, arg2))
+
+    val farg1 = new Variable("farg1");
+    val farg2 = new Variable("farg1");
+    val f = new Procedure("f", Seq(farg1, farg2));
+    f.code = block(
+      ifStmt(readVarRes(farg1), ltCmp, constRes(10000), block(
+        read(Reg.result, farg1),
+        Comment("IN F"),
+        call(f, binOp(readVarRes(farg1), plus, constRes(1)), readVarRes(farg2))
+      ), block(
+        binOp(readVarRes(farg1), plus, readVarRes(farg2))
+      ))
+    )
+
+    main.code = block(
+      LIS(Reg.scratch),
+      Word(encodeSigned(0)),
+      Call(f, Seq(ADD(Reg.result, Reg.scratch), constRes(500))) ,
+      ADD(Reg.result, Reg.result),
+    )
+
+    val code = compilerA6(Seq(main, f))
+    val out = A4.loadAndRun(code, debug = false);
+    printState(out)
+    assert(decodeUnsigned(out.reg(3)) == 10500)
+  }
 
   test("printProcedure"){
     val arg1 = new Variable("arg1-main")
@@ -258,7 +356,7 @@ class A6Tests extends FunSuite {
 
     main.code = block(
       LIS(Reg.scratch),
-      Word(encodeSigned(500)),
+      Word(encodeSigned(929)),
       Call(twoProTest, Seq(ADD(Reg.result, Reg.scratch))) ,
     )
 

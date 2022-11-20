@@ -723,6 +723,7 @@ object Transformations {
         def fun: PartialFunction[Code, Code] = {
           case Call(procedure, args, isTail) => {
             val isHeapAllocated = frameOnHeap.contains(procedure)
+            val currentIsHeapAllocated = frameOnHeap.contains(currentProcedure)
             val caller = currentProcedure
             val callee = procedure
             val tempVars = createTempVars(procedure.parameters).toList
@@ -731,6 +732,8 @@ object Transformations {
               case Some(value) => value
               case None => sys.error("Param chunk not found for procedure with name " + procedure.name)
             }
+            val tmpParamsChunk = new Chunk(tmpStaticLink +: procedure.parameters);
+
             Scope(tempVars ++ Seq(tmpStaticLink), block(
               Comment("Start of call to " + callee.name + " from " + caller.name),
               Block(args.zipWithIndex.map { case (argCode, i) => {
@@ -744,25 +747,73 @@ object Transformations {
               }),
               computeStaticLink(callee),
               write(tmpStaticLink, Reg.result),
-              if (isHeapAllocated) heap.allocate(paramChunk) else Stack.allocate(paramChunk),
-              Block(
-                paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
-                  if(paramVar == procedure.staticLink){ // i == 0
-                    block(
-                      read(Reg.scratch, tmpStaticLink),
-                      paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
-                    )
-                  }else{
-                    block(
-                      read(Reg.scratch, tempVars(i - 1)),
-                      paramChunk.store(Reg.result, paramVar, Reg.scratch)
-                    )
-                  }
-                },
-              ),
-              LIS(Reg.targetPC),
-              Use(callee.label),
-              JALR(Reg.targetPC),
+              if (isTail && !currentIsHeapAllocated && currentProcedure.name != "start") {
+                println(" Doing tail call optimization for call from " + currentProcedure.name + " to " + callee.name)
+                block(
+                  Comment(" Doing tail call optimization for call from " + currentProcedure.name + " to " + callee.name),
+                  Stack.allocate(tmpParamsChunk),
+                  Block(tmpParamsChunk.variables.zipWithIndex.map { case (paramVar, i) =>
+                    if(i == 0){ // i == 0
+                      block(
+                        read(Reg.scratch, tmpStaticLink),
+                        tmpParamsChunk.store(Reg.result, tmpStaticLink, Reg.scratch),
+                      )
+                    }else{
+                      block(
+                        read(Reg.scratch, tempVars(i - 1)),
+                        tmpParamsChunk.store(Reg.result, paramVar, Reg.scratch)
+                      )
+                    }
+                  }),
+                  read(Reg.link, currentProcedure.savedPC),
+                  read(Reg.framePointer, currentProcedure.dynamicLink),
+                  Stack.pop, // tmp params
+                  Stack.pop, // currentProcedure frame
+                  Stack.pop, // currentProcedure params
+                  ADD(Reg.savedParamPtr, Reg.result), // store tmp param pointer
+                  if (isHeapAllocated) heap.allocate(paramChunk) else Stack.allocate(paramChunk),
+                  Block(tmpParamsChunk.variables.zipWithIndex.map { case (paramVar, i) =>
+                    if(i == 0){ // i == 0
+                      block(
+                        tmpParamsChunk.load(Reg.savedParamPtr, Reg.scratch, tmpStaticLink),
+                        paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
+                      )
+                    }else{
+                      block(
+                        tmpParamsChunk.load(Reg.savedParamPtr, Reg.scratch, procedure.parameters(i-1)),
+                        paramChunk.store(Reg.result, paramVar, Reg.scratch)
+                      )
+                    }
+                  }),
+                  LIS(Reg.targetPC),
+                  Use(callee.label),
+                  JR(Reg.targetPC),
+                )
+              }
+              else{
+                block(
+                  Comment(" doing normal "),
+                  if (isHeapAllocated) heap.allocate(paramChunk) else Stack.allocate(paramChunk),
+                  Block(
+                    paramChunk.variables.zipWithIndex.map { case (paramVar, i) =>
+                      if(paramVar == procedure.staticLink){ // i == 0
+                        block(
+                          read(Reg.scratch, tmpStaticLink),
+                          paramChunk.store(Reg.result, procedure.staticLink, Reg.scratch),
+                        )
+                      }else{
+                        block(
+                          read(Reg.scratch, tempVars(i - 1)),
+                          paramChunk.store(Reg.result, paramVar, Reg.scratch)
+                        )
+                      }
+                    },
+                  ),
+                  LIS(Reg.targetPC),
+                  Use(callee.label),
+                  JALR(Reg.targetPC),
+                  )
+                }
             ))
           }
           case CallClosure(closure, arguments: Seq[Code], parameters: Seq[Variable], isTail) => {
@@ -867,12 +918,38 @@ object Transformations {
         * As given, this method just returns the `code` unchanged. When you implement handling of tail calls in
         * Assignment 6, you will change the method body to actually detect tail calls.
         */
-      def detectTailCalls(code: Code): Code = code
+      def detectTailCalls(code: Code): Code = {
+        code match {
+          case Block(stmts) => {
+            if(stmts.nonEmpty) Block(stmts.dropRight(1) :+ detectTailCalls(stmts.last)) else block()
+          }
+          case Scope(variables, code) => Scope(variables, detectTailCalls(code))
+          case IfStmt(elseLabel, e1, comp, e2, thens, elses) => IfStmt(elseLabel, e1, comp, e2, detectTailCalls(thens), detectTailCalls(elses))
+          case Call(procedure, arguments, _) => {
+            var isTail = true
+            var p = procedure.outer;
+            println(" got call ", procedure, " from ", currentProcedure.name)
+            while(p.isDefined){
+              if (p.get == currentProcedure){
+                isTail = false;
+                println(" setting false")
+              }
+              p = p.get.outer;
+            }
+            println(" for " + procedure + " returning " + isTail)
+            Call(procedure, arguments, isTail = isTail)
+          }
+          case CallClosure(closure, arguments, parameters, _) => CallClosure(closure, arguments, parameters, isTail = true)
+          case x => x
+        }
+      }
 
       /* Main body of phaseOne. */
 
       val code1 = eliminateClosures(currentProcedure.code)
       val code2 = detectTailCalls(code1)
+      println(code1)
+      println(code2)
       val code3 = eliminateCalls(code2)
       val code4 = eliminateIfStmts(code3)
       val (code5, variables) = eliminateScopes(code4)
@@ -927,7 +1004,7 @@ object Transformations {
           ADD(Reg.framePointer, Reg.result), // set the new frame pointer
           Comment("Start of body for " + currentProcedure.name),
         )
-        val exit = block(
+        val normalExit = block(
           Comment("End of body for " + currentProcedure.name),
           frame.load(Reg.framePointer, Reg.link, currentProcedure.savedPC), // load return address
           Comment("Restoring older frame pointer in procedure " + currentProcedure.name),
@@ -935,10 +1012,15 @@ object Transformations {
           Comment("after restore " + currentProcedure.name),
           if (!isHeapAllocated) block(Stack.pop, Stack.pop, JR(Reg.link)) else JR(Reg.link)
         )
+
+        val tailExit = block(
+          Comment(" Doing tail exit for " + currentProcedure.name)
+
+        )
         if(code == null){
           sys.error("No body given for procedure: " + currentProcedure.name)
         }
-        block(Define(currentProcedure.label), enter, code, exit)
+        block(Define(currentProcedure.label), enter, code,  normalExit)
       }
       /** Eliminate all `VarAccess`es from a tree of `Code` by replacing them with machine language code for
         * reading or writing the relevant variable.
