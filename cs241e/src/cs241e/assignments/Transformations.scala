@@ -771,6 +771,8 @@ object Transformations {
                   Stack.pop, // currentProcedure params
                   ADD(Reg.savedParamPtr, Reg.result), // store tmp param pointer
                   if (isHeapAllocated) heap.allocate(paramChunk) else Stack.allocate(paramChunk),
+                  copyChunk(Reg.result, Reg.savedParamPtr),
+                  /*
                   Block(tmpParamsChunk.variables.zipWithIndex.map { case (paramVar, i) =>
                     if(i == 0){ // i == 0
                       block(
@@ -784,6 +786,7 @@ object Transformations {
                       )
                     }
                   }),
+                   */
                   LIS(Reg.targetPC),
                   Use(callee.label),
                   JR(Reg.targetPC),
@@ -1089,6 +1092,7 @@ object Transformations {
               }
                 // have to follow static links
               else{
+                println(procedure.outer)
                 block(
 //                  actualFrame.load(Reg.framePointer, Reg.result, currentFrame),
                   currentFrameChunk.load(Reg.scratchForStaticLink, Reg.scratch, procedure.paramPtr),

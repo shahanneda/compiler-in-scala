@@ -143,7 +143,7 @@ object Typer {
     val tpe: FunctionType = new FunctionType(parms.map(x => x.tpe), returnType)
 
     /** The new `Procedure` object that will represent this procedure. */
-    val procedure: Procedure = new Procedure(name, variables.map(x => x.variable))
+    val procedure: Procedure = new Procedure(name, parms.map(x => x.variable), outer=(if(outer.isDefined) Option(outer.get.procedure) else None))
 
     /** The `ProcedureScope`s of the nested procedures that are immediately nested within this procedure.
       *
@@ -160,7 +160,11 @@ object Typer {
         }
       }
       if(defdefs.production == "defdefsopt defdefs"){
-        helper(defdefs.children.head).map(x => new ProcedureScope(x, Option(this)))
+        helper(defdefs.children.head).map(x => {
+          val out = new ProcedureScope(x, Option(this))
+          //println(" created " +  out+ "with "+ x+ " with outer "+ out.procedure.outer)
+          out
+        })
       }else{
         Seq()
       }

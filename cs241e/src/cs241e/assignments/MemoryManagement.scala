@@ -209,11 +209,31 @@ object MemoryManagement {
     */
   def copyChunk(toRegister: Reg, fromRegister: Reg): Code = {
     /* The registers that may be modified by the code that will be generated. */
-    val modifiedRegisters = Set(Reg.scratch, Reg.copyChunkScratch)
+    val modifiedRegisters = Set(Reg.scratch, Reg.copyChunkScratch, Reg.scratchForStaticLink)
     require(!modifiedRegisters.contains(toRegister))
-    require(!modifiedRegisters.contains(fromRegister))
+    require(!modifiedRegisters.contains(fromRegister)) // 8
+    val startLabel = new Label("copy chunk start");
+    val endLabel = new Label("copy chunk end");
 
-    ???
+    block(
+      ADD(Reg.scratch, Reg.zero), // scratch is counter, counter starts at 0
+      Define(startLabel),
+      LW(Reg.copyChunkScratch, 0, fromRegister), // copyChunkScratch has size now
+      SLTU(Reg.copyChunkScratch, Reg.scratch, Reg.copyChunkScratch), // now ccs is 1 if copyChunkScrath < scratch, else 0
+      // if scratch < copChunkScartch, 1
+      // if scratch == copychunkscratch 0
+      // if scratch > copychunkscratch 0
+      beq(Reg.copyChunkScratch, Reg.zero, endLabel),
+      ADD(Reg.copyChunkScratch, fromRegister, Reg.scratch), // copyChunkScratch has fromRegister + counter address now
+      LW(Reg.copyChunkScratch, 0, Reg.copyChunkScratch), // load that value
+      ADD(Reg.scratchForStaticLink, toRegister, Reg.scratch ), // load targetRegister + counter
+      SW(Reg.copyChunkScratch, 0, Reg.scratchForStaticLink),// store the value
+      LIS(Reg.copyChunkScratch),
+      Word(encodeUnsigned(4)),
+      ADD(Reg.scratch, Reg.scratch, Reg.copyChunkScratch),
+      beq(Reg.zero, Reg.zero, startLabel),
+      Define(endLabel)
+    )
   }
 
   private var heapImplementation: MemoryAllocator = SimpleHeapAllocator
