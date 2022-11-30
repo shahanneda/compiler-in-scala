@@ -726,7 +726,7 @@ object Transformations {
             val caller = currentProcedure
             val callee = procedure
             val tempVars = createTempVars(procedure.parameters).toList
-            val tmpStaticLink = new Variable("temp static link")
+            val tmpStaticLink = new Variable("temp static link", isPointer = true) // SET IS  POINTER
             val paramChunk = paramChunks.get(procedure) match {
               case Some(value) => value
               case None => sys.error("Param chunk not found for procedure with name " + procedure.name)
@@ -822,7 +822,7 @@ object Transformations {
             val staticLink = new Variable("staticLink", isPointer = true)
             val paramChunk = new Chunk(staticLink +: parameters)
             val tempVars = createTempVars(parameters)
-            val closureLocation = new Variable("tmp closure chunk location")
+            val closureLocation = new Variable("tmp closure chunk location", isPointer = true)
             if(arguments.length != parameters.length){
               sys.error("Invalid closure call! " + arguments.length + " vs " + parameters.length + " args !")
             }
@@ -889,8 +889,8 @@ object Transformations {
       def eliminateClosures(code: Code): Code = {
         def f: PartialFunction[Code, Code] = {
           case Closure(procedure) => {
-            val closureLocation = new Variable("temp closure location " + procedure.name)
-            val staticLink = new Variable("temp temp static link for calling closure " + procedure.name)
+            val closureLocation = new Variable("temp closure location " + procedure.name, isPointer = true)
+            val staticLink = new Variable("temp temp static link for calling closure " + procedure.name, isPointer = true)
 
             Scope(Seq(closureLocation, staticLink), block(
               LIS(Reg.result),

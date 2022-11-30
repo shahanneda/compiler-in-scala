@@ -143,6 +143,47 @@ class A10Tests extends FunSuite {
         }
 
         inc1 = double(increaseByGen(1));
+        inc1(30) + double(increaseByGen(1))(30)
+      }
+    """
+
+    val out = Lacs.scanAndParse(input);
+    val typed = Typer.typeTree(out)
+    //println(typed.procedureScopes.head.parms)
+    val i = CodeGenerator.generateProcedures(typed)
+    println(i(1).outer)
+    //println(i.head.parameters)
+    //println(i.head.code)
+    val code = compilerA6(i)
+    //println(code)
+    val codeOut = A4.loadAndRun(code, Word(encodeUnsigned(4)), Word(encodeUnsigned(2)), debug = true)
+    printState(codeOut)
+    assert(codeOut.reg(3) == encodeUnsigned(64))
+  }
+
+ test("Increase double 2") {
+    val input =
+      s"""
+      def main (a : Int, b : Int) : Int = {
+        var inc1 : (Int) => Int;
+        var inc2 : (Int) => Int;
+        var inc3 : (Int) => Int;
+
+        def increaseByGen(i: Int) : (Int) => Int = {
+          def increase(a : Int) : Int = {
+            a + i
+          }
+          increase
+        }
+
+        def double(f: (Int) => Int ) : (Int) => Int = {
+          def h(a: Int) : Int = {
+            f(f(a))
+          }
+          h
+        }
+
+        inc1 = double(increaseByGen(1));
         inc1(30)
       }
     """
@@ -158,6 +199,77 @@ class A10Tests extends FunSuite {
     val codeOut = A4.loadAndRun(code, Word(encodeUnsigned(4)), Word(encodeUnsigned(2)), debug = false)
     printState(codeOut)
     assert(codeOut.reg(3) == encodeUnsigned(32))
+  }
+
+  test("Tail call 1") {
+    val input =
+      s"""
+      def main (a : Int, b : Int) : Int = {
+        var inc1 : (Int) => Int;
+        var inc2 : (Int) => Int;
+        var inc3 : (Int) => Int;
+
+        def f(i: Int) : Int = {
+          if(i > 100000){
+            10000
+          }
+          else{
+            f(i + 1)
+          }
+        }
+
+        f(0)
+      }
+    """
+
+    val out = Lacs.scanAndParse(input);
+    val typed = Typer.typeTree(out)
+    //println(typed.procedureScopes.head.parms)
+    val i = CodeGenerator.generateProcedures(typed)
+    println(i(1).outer)
+    //println(i.head.parameters)
+    //println(i.head.code)
+    val code = compilerA6(i)
+    val codeOut = A4.loadAndRun(code, Word(encodeUnsigned(4)), Word(encodeUnsigned(2)), debug = false)
+    assert(codeOut.reg(3) == encodeUnsigned(10000))
+  }
+
+  test("Tail call closure 1") {
+    val input =
+      s"""
+      def main (a : Int, b : Int) : Int = {
+        var inc1 : (Int) => Int;
+        var inc2 : (Int) => Int;
+        var inc3 : (Int) => Int;
+
+        def h(x : Int) : Int  = {
+          f(x + 1, h)
+        }
+
+        def f(i: Int, g : (Int) => Int ) : Int = {
+          if(i > 100){
+            10000
+          }
+          else{
+            g(i)
+          }
+        }
+
+        f(0, h)
+      }
+    """
+
+    val out = Lacs.scanAndParse(input);
+    val typed = Typer.typeTree(out)
+    //println(typed.procedureScopes.head.parms)
+    val i = CodeGenerator.generateProcedures(typed)
+    println(i(2).name, i(2).parameters(0), i(2).parameters(0).isPointer, i(2).parameters(1), i(2).parameters(1).isPointer)
+    println(i.head.parameters)
+    //println(i.head.code)
+    val code = compilerA6(i)
+    val codeOut = A4.loadAndRun(code, Word(encodeUnsigned(4)), Word(encodeUnsigned(2)), debug = false)
+    printState(codeOut)
+    assert(codeOut.reg(3) == encodeUnsigned(10000))
   }
 
   def printState(s: State): Unit = {

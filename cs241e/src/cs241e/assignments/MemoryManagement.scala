@@ -73,7 +73,7 @@ object MemoryManagement {
       * Map('a' -> 0, 'b' -> 2, 'c' -> 4)
       *
       */
-    private val variableToOffset: Map[Variable, Int] = variables.zipWithIndex.map{
+    private val variableToOffset: Map[Variable, Int] = sortedVariables.zipWithIndex.map{
       // adding two since first two blocks of chunk are taken
       case (letter,index) => (letter, index*4 + 8)
     }.toMap
@@ -360,3 +360,57 @@ object MemoryManagement {
     code
   } finally { heapImplementation = SimpleHeapAllocator }
 }
+
+/*
+
+TUT Notes:
+Modify allocateProc to always call collectGarbage
+lactsProgramStress marmoset test does this
+
+make sure to not call GC as a tail call
+
+
+heaps only test:
+  test(""){
+    withGC {
+        val f = new Variable("f", isPointer = true)
+        val chunk = Chunk(Seq(f));
+        def newChunk = heap.allocate(chunk);
+        val main = new Procedure("main", Seq(a, b))
+        val p = new Variable("p", isPointer = true);
+        main.code = Scope(seq(p), block(
+          assign(p, newChunk);
+        ))
+
+        val machineCode = compilerA6(main +: GatbageCollecter.procedures)
+        val finalState = A4.loadAndRun(machineCode)
+        println(decodeSigned(finalState.reg(3)).toInt)
+
+        def dumpMem(state: State, address: Word, words: Int = 6): Unit = {
+          if(words > 0){
+            println(spaces(address + ": " + state.mem(address)));
+            dumpMem(state, Word(encodeUnsigned(decodeUnsigned(address) + 4)), words - 1)
+          }
+        }
+
+        def spaces(w: Word): String = w.toString.sliding(8,8).mkstring(" ")
+        println("semispace 1")
+        dumpMem(finalState, GargabeCollector.heapStart)
+        println("semispace 2")
+        dumpMem(finalState, GargabeCollector.heapMiddle)
+        println("heapPtr: " + finalState.reg(Reg.heapPointer.number))
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+ */

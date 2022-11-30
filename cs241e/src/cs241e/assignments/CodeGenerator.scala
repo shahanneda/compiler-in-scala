@@ -29,7 +29,6 @@ object CodeGenerator {
       * `procedureScope.procedure.code`.
       */
     def generateCode(procedureScope: ProcedureScope): Unit = {
-
       val symbolTable = typedProcedures.symbolTables(procedureScope)
      def unWrap(expras: Tree): Seq[Tree] = {
         //rule: expras expra SEMI expras
@@ -137,7 +136,11 @@ object CodeGenerator {
             val Seq(factor, _, argsopt, _) = tree.children;
             // TODO: should I not be using the symbol table for this?
             val tmpVar = new Variable("tmp closure var");
-
+            val factorProcedureType = typedProcedures.typeMap(factor)
+            val functionType = factorProcedureType match {
+              case Typer.IntType => sys.error("trying to call a IntType!");
+              case FunctionType(parameterTypes, returnType) => FunctionType(parameterTypes, returnType)
+            }
             if(factor.production == "factor ID"){
               val Seq(id) = factor.children
               val symbol = symbolTable(id.lhs.lexeme) match {
@@ -145,11 +148,21 @@ object CodeGenerator {
                   if(argsopt.children.isEmpty)
                     return CallClosure(recur(factor), Seq(), Seq())
                   else {
+                    println("value is", value, id.lhs.lexeme);
                     return Scope(Seq(tmpVar), block(
                       recur(factor),
                       write(tmpVar, Reg.result),
-                      CallClosure(readVarRes(tmpVar), unWrap(argsopt.children.head).map(x => recur(x)), unWrap(argsopt.children.head).map(x => new Variable("")))
-                    ))
+                      CallClosure(readVarRes(tmpVar), unWrap(argsopt.children.head).map(x => recur(x)), unWrap(argsopt.children.head)
+                        .map(x => {
+                          new Variable("", isPointer = {
+                            val typ = typedProcedures.typeMap(x)
+                            typ match {
+                              case Typer.IntType => false
+                              case FunctionType(parameterTypes, returnType) => true
+                            }
+                          })
+                        })
+                    )))
                   }
                 }
                 case Right(value: ProcedureScope) => {
@@ -169,7 +182,14 @@ object CodeGenerator {
                 Scope(Seq(tmpVar), block(
                   recur(factor),
                   write(tmpVar, Reg.result),
-                  CallClosure(readVarRes(tmpVar), unWrap(argsopt.children.head).map(x => recur(x)), unWrap(argsopt.children.head).map(x => new Variable("")))
+                  CallClosure(readVarRes(tmpVar), unWrap(argsopt.children.head).map(x => recur(x)), unWrap(argsopt.children.head)
+                    .map(x => new Variable("", isPointer={
+                      val typ = typedProcedures.typeMap(x)
+                      typ match {
+                        case Typer.IntType => false
+                        case FunctionType(parameterTypes, returnType) => true
+                      }
+                    } )))
                 ))
               }
             )
