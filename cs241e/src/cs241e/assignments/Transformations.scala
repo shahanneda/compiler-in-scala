@@ -994,11 +994,22 @@ object Transformations {
       def addEntryExit(code: Code): Code = {
         val enter = block(
           ADD(Reg.savedParamPtr, Reg.result), // store param ptr until we make a proper frame
-          if (isHeapAllocated) heap.allocate(frame) else Stack.allocate(frame),
+          Stack.allocate(frame),
           frame.store(Reg.result, currentProcedure.savedPC, Reg.link), // store return address
           frame.store(Reg.result, currentProcedure.paramPtr, Reg.savedParamPtr), // store saved param pointer
           frame.store(Reg.result, currentProcedure.dynamicLink, Reg.framePointer), // save callers frame pointer
           ADD(Reg.framePointer, Reg.result), // set the new frame pointer
+          if (isHeapAllocated) {
+            block(
+              heap.allocate(frame),
+              MemoryManagement.copyChunk(Reg.result, Reg.framePointer),
+              ADD(Reg.framePointer, Reg.result),
+              Stack.pop
+            )
+          }else{
+            block(
+            )
+          },
           Comment("Start of body for " + currentProcedure.name),
         )
         val normalExit = block(

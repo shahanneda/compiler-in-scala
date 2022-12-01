@@ -127,6 +127,8 @@ object MemoryManagement {
           case None => sys.error("Trying to init chunk with invalid variable: " + v.name)
         }
       })
+      val numberOfPointers = variables.foldLeft(0)((x, y) => x + (if (y.isPointer) 1 else 0))
+      println("number of pointers: ", numberOfPointers, "vars: ", variables)
 
       Block(
         Seq(Comment("Start of block init"))
@@ -135,7 +137,10 @@ object MemoryManagement {
           Seq(
             LIS(Reg.scratch),
             Word(encodeUnsigned(bytes)),
-            SW(Reg.scratch, 0, Reg.result)
+            SW(Reg.scratch, 0, Reg.result),
+            LIS(Reg.scratch),
+            Word(encodeUnsigned(numberOfPointers)),
+            SW(Reg.scratch, 4, Reg.result),
           ) ++ loads
         ).map(w => CodeWord(w))
       )
@@ -307,13 +312,20 @@ object MemoryManagement {
     
     val allocateProc_bytes = new Variable("allocateProc_bytes")
     val allocateProc = new Procedure("allocateProc", Seq(allocateProc_bytes))
-    
+
     val collectGarbage = new Procedure("collectGarbage", Seq())
-    
+
+    val forwardPtrBlock = new Variable("forwardPtrBlock")
+    val forwardPtr = new Procedure("forwardPtr", Seq(forwardPtrBlock), outer = Option(collectGarbage))
+
+    val copyBlock = new Variable("copyBlock")
+    val copy = new Procedure("copy", Seq(copyBlock), outer = Option(collectGarbage))
+
+
     /** The sequence of all procedures required by memory allocator. This sequence must
       * contain `allocateProc` and `collectGarbage`, as well as any additional helper procedures that you define.
       */
-    def procedures: Seq[Procedure] = Seq(allocateProc, collectGarbage)
+    def procedures: Seq[Procedure] = Seq(allocateProc, collectGarbage, forwardPtr, copy)
     
     /** Code of the `allocateProc` procedure, which allocates an area of `allocateProc_bytes` consecutive bytes in memory
       * and places the address of the beginning of that area in `Reg.result`.
@@ -322,7 +334,26 @@ object MemoryManagement {
       * free up space. If there is still not enough space after the garbage collection pass, the behaviour of
       * `allocateProc` is undefined.
       */
-    allocateProc.code = ???
+    allocateProc.code = {
+      block(
+        ifStmt(
+          binOp(ADD(Reg.result, Reg.heapPointer), plus, readVarRes(allocateProc_bytes)),
+          ltCmp,
+          ADD(Reg.result, Reg.fromSpaceEnd),
+          block(
+            // TODO: Remove this
+            Call(collectGarbage, Seq())
+          ),
+          block(
+            Call(collectGarbage, Seq())
+          )
+        ),
+        Comment("Returning heap pointer"),
+        ADD(Reg.result, Reg.heapPointer),
+        read(Reg.scratch, allocateProc_bytes),
+        ADD(Reg.heapPointer, Reg.heapPointer, Reg.scratch),
+      )
+    }
 
     /** Generate the code to call the `allocateProc` procedure to allocate enough memory to hold `chunk` and place
       * the address of the allocated `Chunk` in `Reg.result`. This code should be followed by the code
@@ -333,9 +364,19 @@ object MemoryManagement {
       * `ProgramRepresentation.scala`. In particular, it cannot contain the `Call` `Code`, so the code to call
       * the `allocateProc` procedure must be implemented directly in terms of simpler `Code`s.
       */
-    def allocate(chunk: Chunk): Code = { 
+    def allocate(chunk: Chunk): Code = {
+      val paramChunk = new Chunk(allocateProc.staticLink +: allocateProc.parameters)
       block(
-        ???,
+        Stack.allocate(paramChunk),
+        LIS(Reg.scratch),
+        Word(encodeUnsigned(99)), // putting dummy value for static link
+        paramChunk.store(Reg.result, allocateProc.staticLink, Reg.scratch ),
+        LIS(Reg.scratch),
+        Word(encodeUnsigned(chunk.bytes)),
+        paramChunk.store(Reg.result, allocateProc_bytes, Reg.scratch),
+        LIS(Reg.link),
+        Use(allocateProc.label),
+        JALR(Reg.link),
         chunk.initialize
       )
     }
@@ -349,7 +390,168 @@ object MemoryManagement {
       * is stored on the stack, not on the heap. Thus, you may assume that the dynamic link in the `collectGarbage`
       * procedure points to what was the top of the stack before the `collectGarbage` procedure was called.
       */
-    collectGarbage.code = ???
+
+    def size(block: Code) = deref(block)
+    def next(block: Code) = deref(binOp(block, plus, constRes(4)))
+    def setSize(block: Code, size: Code) = assignToAddr(block, size)
+    def setNext(block: Code, next: Code) = assignToAddr(binOp(block, plus, constRes(4)), next)
+
+    val toSpaceStart = new Variable("toSpaceStart")
+    val free = new Variable("free")
+    val scan = new Variable("scan")
+    collectGarbage.code = Scope(Seq(toSpaceStart, free, scan), block(
+      ifStmt(ADD(Reg.result, Reg.fromSpaceEnd), eqCmp, block(
+        LIS(Reg.result),
+        heapMiddle
+      ), block(
+        Comment("toSpaceStart is middle, setting"),
+        LIS(Reg.result),
+        heapMiddle,
+        write(toSpaceStart, Reg.result)
+      ), block(
+        Comment("toSpaceStart is start of heap, settign"),
+        LIS(Reg.result),
+        heapStart,
+        write(toSpaceStart, Reg.result)
+      )),
+      assign(free, read(Reg.result, toSpaceStart)),
+      assign(scan, read(Reg.result, collectGarbage.dynamicLink)),
+      whileLoop(readVarRes(scan), ltCmp, block(LIS(Reg.result), CPU.maxAddr), block(
+        Comment("First while loop"),
+        Call(forwardPtr, Seq(block(read( Reg.result, scan)))),
+        // scan = scan + scan(size)
+        Comment("scan = scan + size(scan)"),
+        size(read(Reg.result, scan)),
+        read(Reg.scratch, scan),
+        ADD(Reg.result, Reg.result, Reg.scratch),
+        write(scan, Reg.result)
+      )),
+
+      read(Reg.result, toSpaceStart),
+      write(scan, Reg.result),
+
+      whileLoop(readVarRes(scan), ltCmp, read(Reg.result, free), block(
+        Comment("second while loop"),
+        Call(forwardPtr, Seq(block(read( Reg.result, scan)))),
+        // scan = scan + scan(size)
+        Comment("scan = scan + size(scan)"),
+        size(read(Reg.result, scan)),
+        read(Reg.scratch, scan),
+        ADD(Reg.result, Reg.result, Reg.scratch),
+        write(scan, Reg.result)
+      )),
+
+      Comment("fromSpaceEnd = toSpaceStart + semiSpaceSize"),
+      binOp(read(Reg.result, toSpaceStart), plus,
+        binOp(
+          block(LIS(Reg.result), heapMiddle), minus,
+          block(LIS(Reg.result), heapStart)
+        )),
+      ADD(Reg.fromSpaceEnd, Reg.result),
+      read(Reg.heapPointer, free),
+
+      // store number of fre
+      Comment("storing number items used in heap in Reg.result"),
+      binOp(read(Reg.result, free), minus, read(Reg.result, toSpaceStart)),
+    ))
+
+
+    val numberOfPtrs = new Variable("numberOfPointers");
+    val current = new Variable("current");
+    val tmp = new Variable("tmp-stores-newAddr");
+    forwardPtr.code = Scope(Seq(numberOfPtrs, current, tmp), block(
+      Comment("In forward ptrs"),
+      Comment("writing number of ptrs before"),
+      deref(
+        binOp(read(Reg.result, forwardPtrBlock), plus, constRes(4)),
+      ),
+      Comment("writing number of ptrs"),
+      write(numberOfPtrs, Reg.result),
+      assign(current, ADD(Reg.result, Reg.zero)),
+
+
+      whileLoop(read(Reg.result, current), ltCmp, read(Reg.result, numberOfPtrs), block(
+
+        Comment("inside forward"),
+        Comment("here is currentChunk we're forwarding"),
+        read(Reg.result, forwardPtrBlock),
+        Comment("Current is"),
+        read(Reg.result, current),
+        Comment("number of ptrs is"),
+        read(Reg.result, numberOfPtrs),
+        binOp(binOp(
+          binOp(read(Reg.result, current), times, constRes(4)),
+          plus, read(Reg.result, forwardPtrBlock)), plus, constRes(8)),
+        Comment("doing deref of current*4 + forwardPtrBlock + 8"),
+
+        /*
+        LIS(Reg.link),
+        Word(encodeSigned(-18751827)),
+        JR(Reg.link),
+        */
+        //write(tmp, Reg.result),
+
+        //ifStmt(read(Reg.result, tmp), neCmp, ADD(Reg.result, Reg.zero), block(
+        //read(Reg.result, tmp),
+          deref(ADD(Reg.result, Reg.result)),
+          Call(copy, Seq(ADD(Reg.result, Reg.result))),
+          write(tmp, Reg.result),
+          assignToAddr(
+            binOp(binOp(
+              binOp(read(Reg.result, current), times, constRes(4)),
+              plus, read(Reg.result, forwardPtrBlock)), plus, constRes(8)),
+            read(Reg.result, tmp)
+          ),
+        //)),
+
+        assign(current, binOp(read(Reg.result, current), plus, constRes(1)))
+      ))
+    ))
+
+    val isInFromSpace = new Variable("isInFromSpace");
+    copy.code = Scope(Seq(isInFromSpace), block(
+      write(isInFromSpace, Reg.zero),
+      ifStmt(ADD(Reg.result, Reg.fromSpaceEnd), eqCmp, block(LIS(Reg.result), heapMiddle),
+        block(
+          Comment("fromSpaceEnd is heapMiddle"),
+          ifStmt(read(Reg.result, copyBlock), ltCmp, ADD(Reg.result, Reg.fromSpaceEnd), block(
+            ifStmt(read(Reg.result, copyBlock), geCmp, block(LIS(Reg.result), heapStart), block(
+              LIS(Reg.result),
+              Word(encodeUnsigned(1)),
+              write(isInFromSpace, Reg.result),
+              Comment("setIsInFromSpace true")
+            ))
+          ))
+        ),
+        block(
+          Comment("fromSpaceEnd is heapEnd"),
+          ifStmt(read(Reg.result, copyBlock), ltCmp, ADD(Reg.result, Reg.fromSpaceEnd), block(
+            ifStmt(read(Reg.result, copyBlock), geCmp, block(LIS(Reg.result), heapMiddle), block(
+              LIS(Reg.result),
+              Word(encodeUnsigned(1)),
+              write(isInFromSpace, Reg.result),
+              Comment("setIsInFromSpace true")
+            ))
+          ))
+        )
+      ),
+      ifStmt(read(Reg.result, isInFromSpace), eqCmp, ADD(Reg.result, Reg.zero), block(
+        Comment("isInFromSpace is false"),
+        read(Reg.result, copyBlock)
+      ), block(
+        Comment("isInFromSpace is true"),
+        ifStmt(size(read(Reg.result, copyBlock)), geCmp, ADD(Reg.result, Reg.zero), block(
+          read(Reg.result, free),
+          read(Reg.targetPC, copyBlock),
+          copyChunk(Reg.result, Reg.targetPC),
+          setNext(read(Reg.result, copyBlock), read(Reg.result, free)),
+          setSize(read(Reg.result, copyBlock), binOp(ADD(Reg.result, Reg.zero), minus, size(read(Reg.result, copyBlock)))),
+          binOp(read(Reg.result, free), plus, size(read(Reg.result, free))),
+          write(free, Reg.result),
+        )),
+        next(read(Reg.result, copyBlock)),
+      ))
+    ))
   }
 
   /** Runs the provided Scala code block using the GarbageCollector implementation of the heap. */
